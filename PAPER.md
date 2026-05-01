@@ -2,8 +2,8 @@
 
 **LKlight：基于 Rust 语言的 LightDock 萤火虫群优化对接引擎高性能再实现**
 
-> **Version:** 1.0.0 | **Base:** LightDock 3.x (Python + lightdock-rust) | **License:** GPL-3.0-or-later  
-> **Binary:** `LKlight` | **Key features:** 12 scoring functions · ANM support · rayon parallel outer loop · SIMD auto-vectorization · thread-local scratch reuse · BufWriter I/O · macOS arm64 / Linux x86-64 / Windows x86-64
+> **Version:** 1.0.0 | **Base:** LightDock 3.x (Python + lightdock-rust) | **Repository:** https://github.com/LK-Studio1128/LKlight | **License:** GPL-3.0-or-later
+> **Binary:** `LKlight` | **Key features:** 12 scoring-function families / 13 CLI method names · ANM support · rayon parallel outer loop · SIMD-friendly hot paths · thread-local scratch reuse · BufWriter I/O · macOS arm64 / Linux x86-64 / Windows x86-64
 
 ---
 
@@ -11,9 +11,9 @@
 
 Molecular docking is a cornerstone of structure-based drug design and protein–protein interaction (PPI) analysis. LightDock [1,2], developed at the Barcelona Supercomputing Center, is an open-source docking framework built upon the Glowworm Swarm Optimization (GSO) meta-heuristic [3]. It provides 12 scoring functions spanning statistical potentials (DFIRE [4], DFIRE2 [5]), physicochemical potentials (PyDock [6], cpyDOCK), and biophysical potentials (PISA [8], SIPPER [9], MJ3h [10], TOBI [11]), and natively supports backbone flexibility through Anisotropic Network Models (ANM) [7]. While LightDock's Python implementation offers algorithmic breadth, interpreter overhead limits its throughput in large-scale virtual screening contexts.
 
-We present **LKlight v1.0**, a complete reimplementation of the LightDock computational core in safe Rust [12]. LKlight first corrects four critical defects in the prior Rust baseline (`lightdock-rust`): (i) runtime panics from missing DFIRE parameter files, eliminated by binary embedding; (ii) erroneous ANM stride computations across multiple scoring modules causing out-of-bounds reads; (iii) unguarded panics on non-standard residues in DFIRE; and (iv) a mismatched atom-count assertion disabling all ANM-enabled runs. Building on this corrected foundation, LKlight applies a multi-tier optimization strategy comprising `rayon`-based [13] parallelization of the receptor-atom outer loop, compiler-guided SIMD auto-vectorization via `target-cpu=native`, `thread_local!` scratch-buffer reuse eliminating per-step heap allocations, a 3D spatial hash grid for the SD scoring function (9 Å cutoff, genuine O(N²)→O(N) sparsification), and `BufWriter` I/O batching. We also provide a rigorous quantitative analysis of why analogous grids regress performance for scoring functions with large cutoff radii (≥15 Å).
+We present **LKlight v1.0**, a complete reimplementation of the LightDock computational core in safe Rust [12]. LKlight first corrects four critical defects in the prior Rust baseline (`lightdock-rust`): (i) runtime panics from missing DFIRE parameter files, eliminated by binary embedding; (ii) erroneous ANM stride computations across multiple scoring modules causing out-of-bounds reads; (iii) unguarded panics on non-standard residues in DFIRE; and (iv) a mismatched atom-count assertion disabling all ANM-enabled runs. Building on this corrected foundation, LKlight applies a multi-tier optimization strategy comprising `rayon`-based [13] parallelization of the receptor-atom outer loop, SIMD-friendly contiguous hot loops compatible with portable release baselines, `thread_local!` scratch-buffer reuse eliminating per-step heap allocations, a 3D spatial hash grid for the SD scoring function (9 Å cutoff, genuine O(N²)→O(N) sparsification), and `BufWriter` I/O batching. We also provide a rigorous quantitative analysis of why analogous grids regress performance for scoring functions with large cutoff radii (≥15 Å).
 
-Benchmarks on macOS arm64 (Apple Silicon, 200 glowworms, 100 steps, *n* = 3 replicates) demonstrate speedups of **3.0–25.5× over Python** and **26.5–307× over the prior Rust baseline** across four representative docking scenarios. Correctness is verified by 29 unit tests and 160 numerical integration tests against the Python reference implementation. LKlight is released as a GPL-3.0-or-later derivative of LightDock, with full source code availability on GitHub.
+Benchmarks on macOS arm64 (Apple Silicon, 200 glowworms, 100 steps, *n* = 3 replicates) demonstrate speedups of **3.0–25.5× over Python** and **26.5–307× over the prior Rust baseline** across four representative docking scenarios. Correctness is guarded by the public `cargo test --lib` suite and by development-stage numerical integration comparisons against the Python reference implementation. LKlight is released as a GPL-3.0-or-later derivative of LightDock, with full source code availability on GitHub and pre-built binaries distributed separately as release assets.
 
 ---
 
@@ -23,7 +23,7 @@ Benchmarks on macOS arm64 (Apple Silicon, 200 glowworms, 100 steps, *n* = 3 repl
 
 本文介绍 **LKlight v1.0**，一个将 LightDock 核心引擎从 Python/NumPy 完整迁移至 Rust 的实现。主要贡献包括：
 
-1. 将全部 12 种评分函数（DFIRE/DFIRE2、DNA、MJ3h、PyDock、cpyDOCK、SD、VDW、PISA、SIPPER、TOBI、dDNA）完整移植至 Rust，修复了原 Rust 基线版本中存在的多项 Bug（DFIRE 参数文件缺失崩溃、ANM stride 计算错误等）；
+1. 将 12 类评分函数（13 个命令行方法名，其中 `fastdfire` 为 `dfire` 的兼容别名）完整移植至 Rust，修复了原 Rust 基线版本中存在的多项 Bug（DFIRE 参数文件缺失崩溃、ANM stride 计算错误等）；
 2. 实施多层次性能优化：预计算 `sqrt_vdw_charges`（消除热路径 sqrt 调用）、`thread-local` 坐标/界面 Vec 复用（消除每步堆分配）、GSO 运动阶段并行化（`rayon par_iter_mut`）、空间网格剪枝（sd.rs，O(N²)→O(N)）、BufWriter 减少文件写 syscall；
 3. 通过对四类测试场景（1PPE pydock、1PPE dfire、1AZP DNA+ANM、1PPE cpydock）的系统基准测试，定量揭示各优化项的实际效果，并分析空间网格优化在大截断距离场景下出现性能回退的根因。
 
@@ -34,7 +34,7 @@ Benchmarks on macOS arm64 (Apple Silicon, 200 glowworms, 100 steps, *n* = 3 repl
 - **cpydock**（含去溶剂化）：LKlight **44ms** vs Python **844ms**，**快 19.2×**；vs Rust-orig **7158ms**，**快 163×**
 - **dfire**（哈希表统计势）：LKlight **33ms** vs Python **840ms**，**快 25.5×**（Rust-orig 因缺少外部参数文件而**运行崩溃**，约 6ms 为启动崩溃时间）
 
-性能突破的关键是多项联合优化：(1) 撤回 HashMap 空间网格（G3/G4 回退）；(2) 用 `rayon par_iter` 将受体原子外循环并行化（H1，pydock/dna/cpydock）；(3) 将同一并行化模式应用于 dfire/dfire2/sd（I1-I3）；(4) `.cargo/config.toml` 启用 `target-cpu=native` 使 LLVM 生成 AVX2/FMA/NEON 指令（H2）。产出的单文件二进制 `lklight` 支持 macOS arm64 和 Linux x86-64。
+性能突破的关键是多项联合优化：(1) 撤回 HashMap 空间网格（G3/G4 回退）；(2) 用 `rayon par_iter` 将受体原子外循环并行化（H1，pydock/dna/cpydock）；(3) 将同一并行化模式应用于 dfire/dfire2/sd（I1-I3）；(4) 将热路径重构为 SIMD 友好的连续数组和简单内循环，同时发布配置采用便携 CPU baseline，benchmark 构建可按需启用 native 优化。产出的单文件二进制 `LKlight` 支持 macOS arm64、Linux x86-64 和 Windows x86-64。
 
 ---
 
@@ -71,7 +71,7 @@ LightDock 的关键特性包括：
 | 贡献类别 | 具体内容 |
 |----------|---------|
 | **Bug 修复** | DFIRE 参数嵌入（消除外部文件依赖）；ANM stride 统一为 `nmodes.len()/(3×n_modes)`；未知残基返回 999 而非 panic；移除不兼容的 atom_count() 断言 |
-| **评分函数完整性** | 全部 12 种评分函数通过 160 项综合测试验证，与 Python 参考实现数值一致 |
+| **评分函数完整性** | 12 类评分函数（13 个命令行方法名，`fastdfire` 为 `dfire` 兼容别名）均有 Rust 实现；公开仓库保留 `cargo test --lib` 单元测试与轻量 PDB 夹具，开发阶段另以 Python 参考实现进行综合数值对比 |
 | **内存优化** | `thread_local!` 坐标/界面向量复用；GSO 运动阶段 pos_scratch/rot_scratch 字段复用；`qt::rotate()` 返回 `[f64;3]` 消除堆分配 |
 | **计算优化** | `sqrt_vdw_charges` 预计算；sd.rs 9Å 空间网格 O(N²)→O(N)；GSO 运动阶段 rayon 并行化 |
 | **I/O 优化** | `swarm.rs save()` 使用 `BufWriter` 批量写出减少 syscall |
@@ -109,7 +109,7 @@ $$r_i^d(t+1) = \min\!\left(r_s,\, \max\!\left(0,\, r_i^d(t) + \beta(n_t - |N_i(t
 
 ### 2.2 评分函数
 
-本实现支持的 12 种评分函数涵盖三类势能：
+本实现支持 12 类评分函数、13 个命令行方法名（`fastdfire` 为 `dfire` 的兼容别名），涵盖三类势能：
 
 **统计势（Statistical Potentials）**
 
@@ -142,9 +142,9 @@ $$b = m \cdot N_{\text{anm}} \cdot 3 + k \cdot 3, \quad \text{stride} = \frac{\t
 
 ## 3. Methods
 
-### 3.1 完整评分函数移植
+### 3.1 完整评分函数移植与命令行方法名
 
-12 种评分函数均经过独立 Rust 实现并与 Python 参考值进行数值验证：
+12 类评分函数均经过独立 Rust 实现，并在开发阶段与 Python 参考值进行数值验证；公开仓库中保留可由 `cargo test --lib` 运行的核心单元测试，以及 `tests/` 下的轻量 PDB 夹具用于示例和烟雾验证：
 
 | 评分函数 | 类别 | 截断距离 | ANM 支持 | 关键特性 |
 |---------|------|---------|---------|---------|
@@ -160,6 +160,12 @@ $$b = m \cdot N_{\text{anm}} \cdot 3 + k \cdot 3, \quad \text{stride} = \frac{\t
 | `sipper` | 统计势 | 8.5 Å | ✗ | 残基对接触势 |
 | `tobi` | 统计势 | 12 Å | ✓ | TOBI 原子对势，消除 sqrt |
 | `ddna` | 统计势 | 15 Å | ✓ | dDNA 统计势 |
+
+其中 `parse_method()` 接受的命令行方法名为：
+
+```
+dfire fastdfire dfire2 dna mj3h pydock cpydock sd vdw pisa sipper tobi ddna
+```
 
 ### 3.2 Bug 修复详情
 
@@ -306,14 +312,17 @@ for (i, ra) in receptor_coords.iter().enumerate() {
 
 Phase 2（interface flags）占总时间 <5%（截断仅 3.9Å，大多数对跳过），并行 Phase 1 贡献全部性能提升。
 
-#### H2 — `.cargo/config.toml` target-cpu=native
+#### H2 — SIMD 友好热路径与便携发布 baseline
 
 ```toml
-[build]
-rustflags = ["-C", "target-cpu=native"]
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-cpu=x86-64", "-C", "target-feature=+crt-static"]
 ```
 
-这一配置使 LLVM 在编译时检测 CPU 特性（AVX2/FMA on x86-64，NEON/ASIMD on arm64）并生成原生 SIMD 指令，消除 Rust 默认的保守 baseline 编译限制。与 H1 简洁内循环结合，LLVM 可自动向量化 `d2` 计算。
+LKlight 的优化策略分为两层：源码层面将热路径改写为连续数组访问、简单内循环和更少分支，使 LLVM 更容易进行自动向量化；发布层面则采用 `target-cpu=x86-64` 等便携 baseline，保证 Linux/Windows 二进制能在更广泛机器上运行。对于本机 benchmark 或内部性能测试，可临时使用 `RUSTFLAGS="-C target-cpu=native"` 构建以释放 AVX2/FMA 或 NEON/ASIMD 等平台特性，但这不是公开 Release 二进制的默认配置。
 
 ---
 
@@ -321,18 +330,19 @@ rustflags = ["-C", "target-cpu=native"]
 
 ### 4.1 正确性验证
 
-所有优化均通过 `cargo test` 单元测试套件（29 项）以及综合集成测试（160 项）验证：
+公开仓库中的可复现正确性检查包括 `cargo test --lib` 单元测试和 `tests/` 下轻量 PDB 夹具；开发阶段另使用 Python LightDock 参考实现完成全评分函数数值对比：
 
 | 测试类别 | 测试数量 | 通过数量 |
 |---------|---------|---------|
-| `cargo test --lib`（单元测试） | 29 | **29 / 29** |
-| 综合集成测试（全评分函数） | 160 | **160 / 160** |
+| `cargo test --lib`（公开单元测试） | 29 | **29 / 29** |
+| `tests/` 轻量 PDB 夹具 | 4 files | **Present** |
+| 开发阶段综合数值对比（全评分函数） | 160 | **160 / 160** |
 
 浮点精度：G3/G4 空间网格引入的 FP 累加顺序变化导致数值差异 ~2×10⁻¹³，相对误差 < 10⁻¹²，在科学计算精度范围内完全可接受。单元测试断言已从精确相等更新为带容差比较（ε = 10⁻⁸）。
 
 ### 4.2 性能基准测试
 
-**测试环境：** macOS arm64（Apple Silicon），单核，单 swarm，200 glowworms，100 步，每项3次重复取均值
+**测试环境：** macOS arm64（Apple Silicon），单 swarm，200 glowworms，100 步，每项3次重复取均值
 
 **测试场景：**
 - **1PPE pydock**：胰蛋白酶-BPTI 复合物（1615 受体原子 × 221 配体原子 = 357K 对），PyDock 评分（ELEC 截断 30Å + VDW 截断 10Å），不含 ANM
@@ -340,7 +350,7 @@ rustflags = ["-C", "target-cpu=native"]
 - **1AZP dna+ANM**：转录因子-DNA 复合物（ANM 模式开启），DNA 评分函数
 - **1PPE cpydock**：胰蛋白酶-BPTI，cpyDOCK 评分（含去溶剂化）
 
-| 测试场景 | Python (ms) | Rust-orig (ms) | Rust-opt (ms) | Opt/Py× | Opt/Orig× |
+| 测试场景 | Python (ms) | Rust-orig (ms) | LKlight (ms) | LKlight/Py× | LKlight/Orig× |
 |---------|------------|--------------|--------------|--------|----------|
 | 1PPE pydock | 858 | 7,693 | **290** | **3.0×** | **26.5×** |
 | 1PPE dfire | 840 | **CRASH** ¹ | **33** | **25.5×** | N/A |
@@ -352,10 +362,10 @@ rustflags = ["-C", "target-cpu=native"]
 **平台：** macOS arm64（Apple Silicon），swarm_0，200 glowworms，100 步，3 次重复取均值。
 
 **结论：**
-- **pydock**：Rust-opt **3.0× 快于 Python**，**26.5× 快于 Rust-orig**
-- **dna+ANM**：Rust-opt **16.5× 快于 Python**，**307× 快于 Rust-orig**
-- **cpydock**：Rust-opt **19.2× 快于 Python**，**163× 快于 Rust-orig**
-- **dfire**：Rust-opt **25.5× 快于 Python**（Rust-orig 崩溃，Rust-opt 为首个可用 Rust 实现，并且全面超越 Python）
+- **pydock**：LKlight **3.0× 快于 Python**，**26.5× 快于 Rust-orig**
+- **dna+ANM**：LKlight **16.5× 快于 Python**，**307× 快于 Rust-orig**
+- **cpydock**：LKlight **19.2× 快于 Python**，**163× 快于 Rust-orig**
+- **dfire**：LKlight **25.5× 快于 Python**（Rust-orig 崩溃，LKlight 为可用 Rust 实现，并且全面超越 Python）
 
 ### 4.3 G3/G4 空间网格回退分析与修复（H1）
 
@@ -376,7 +386,7 @@ $$\text{每受体原子开销}_{\text{O(N²)}} = 221 \times t_{\text{array}} \ap
 
 ### 4.4 并行 + SIMD 联合优化分析（H2 + I1/I2/I3）
 
-**H2：`target-cpu=native`**，使 LLVM 为当前 CPU 生成 AVX2/FMA（x86-64）或 NEON/FP（arm64）指令。配合简洁内循环，LLVM 可对 `d2` 计算和能量累加进行 SIMD 自动向量化。
+**H2：SIMD 友好热路径 + 可选 native benchmark 构建。** LKlight 的核心改动不是依赖不可移植的默认编译参数，而是把热路径改成适合 LLVM 自动向量化的形式：连续坐标数组、简单距离平方计算、较少临时分配和较少虚调用。公开发布二进制使用便携 CPU baseline；本机 benchmark 可使用 `target-cpu=native` 观察硬件上限。
 
 $$\text{总加速} \approx N_{\text{cores}} \times W_{\text{SIMD}} = 8 \times 4 = 32\times \quad\text{（理论峰值）}$$
 $$\text{实测（pydock）} = \frac{7693\text{ms}}{290\text{ms}} = 26.5\times \approx \text{理论值的 83\%}$$
@@ -396,7 +406,11 @@ $$\text{实测（pydock）} = \frac{7693\text{ms}}{290\text{ms}} = 26.5\times \a
 ```
 src/
 ├── bin/
-│   └── lightdock.rs    # 统一入口（setup/run/rank/top/score/pipeline 等子命令）
+│   ├── lightdock.rs        # 统一入口（setup/run/rank/top/score/pipeline 等子命令）
+│   ├── lightdock-rust.rs   # 兼容上游 run 入口
+│   ├── lightdock-setup.rs  # setup 辅助入口
+│   ├── lgd_rank.rs         # rank 辅助入口
+│   └── lgd_generate_conformations.rs
 ├── swarm.rs            # Swarm 结构 + GSO 引擎（G1/G2 优化）
 ├── glowworm.rs         # Glowworm 结构 + 运动/概率（栈上坐标）
 ├── qt.rs               # 四元数 + SLERP（返回 [f64;3]）
@@ -415,24 +429,48 @@ src/
 └── sipper.rs           # SIPPER 残基接触统计
 ```
 
-代码总规模约 **7,200 行**（不含测试和 data/ 文件）。
+代码总规模约 **8,100 行 Rust 源码**（不含 data/ 参数文件）。
 
-### 5.2 线程安全与并行策略
+### 5.2 统一 CLI 功能
+
+公开发布的 `LKlight` 单二进制入口覆盖 LightDock 常用工作流、分析工具和辅助格式转换：
+
+| 子命令 | 功能 |
+|--------|------|
+| `setup` | 从受体/配体 PDB 生成 `setup.json`、`initial_positions_*.dat`、swarm 初始目录；支持 `--anm` 与约束文件 |
+| `run` | 对指定 swarm 初始位置运行 GSO 优化 |
+| `generate` | 根据 GSO 输出生成 top 构象 PDB；支持 ANM-aware 坐标重构 |
+| `cluster` | 对 GSO 输出进行 DBSCAN 式聚类 |
+| `rank` / `rank_swarm` | 汇总全部 swarm 或逐 swarm 排名 |
+| `top` | 从 ranking 文件生成 Top-N PDB |
+| `filter` | 根据 restraints 文件过滤 ranking |
+| `gso_to_csv` | 将 ranking / GSO 输出转换为 CSV |
+| `move_anm` | 基于 ANM 模式生成柔性构象 |
+| `score` | 对给定受体/配体 PDB 进行单点评分，可传入平移/四元数 |
+| `diameter` | 计算 PDB 结构直径 |
+| `trajectory` | 从某个 glowworm 的 GSO 轨迹生成逐步 PDB |
+| `map_contacts` | 从对接构象映射受体-配体接触 |
+| `reference_points` | 计算或保存结构参考点 |
+| `pipeline` | 一条命令完成 setup、run、rank、top 的自动化流程 |
+
+### 5.3 线程安全与并行策略
 
 - **GSO 邻居搜索**：`par_iter()` 只读并行（`self.glowworms` 共享引用），无锁
 - **GSO 运动阶段**：`par_iter_mut()` 修改每个 `Glowworm`，通过字段级分借（`glowworms` + `pos_scratch` + `rot_scratch`）满足借用检查
 - **评分函数**：`thread_local! { static SCRATCH: RefCell<...> }` 确保每线程独立缓存，无竞争
 - **随机数**：运动阶段随机数在并行前预生成（`StdRng`），保证确定性可复现
 
-### 5.3 平台支持
+### 5.4 平台支持与二进制发布
 
 | 平台 | 状态 |
 |------|------|
-| macOS arm64（Apple Silicon）| 完全支持 ✓ |
-| Linux x86-64 | 完全支持 ✓ |
-| Windows x86-64 | 支持（构建脚本提供） |
+| macOS arm64（Apple Silicon）| 完全支持；Release 资产建议命名 `LKlight-macos-arm64.tar.gz` |
+| Linux x86-64 | 完全支持；静态/便携二进制 Release 资产建议命名 `LKlight-linux-x86_64.tar.gz` |
+| Windows x86-64 | 完全支持；Release 资产建议命名 `LKlight-windows-x64.zip` |
 
-### 5.4 编译与运行
+LKlight 源码仓库不直接提交二进制文件。预编译文件应作为 GitHub Release assets 分发，并与 `LICENSE`、`NOTICE`、`README.md` 一同打包，以满足 GPL 源码可得性和署名要求。
+
+### 5.5 编译与运行
 
 ```bash
 # 编译发行版
@@ -440,6 +478,9 @@ cargo build --release
 
 # 运行测试
 cargo test --lib    # 29/29 单元测试
+
+# 创建单 swarm 输入
+./target/release/LKlight setup tests/1azp/1azp_receptor.pdb tests/1azp/1azp_ligand.pdb -s 1 -g 200
 
 # 运行对接（单 swarm）
 ./target/release/LKlight run setup.json initial_positions_0.dat 100 pydock
@@ -456,9 +497,9 @@ cargo test --lib    # 29/29 单元测试
 
 本工作的核心发现可以概括为两点：
 
-**发现一：Rust 基线版本存在系统性缺陷，无法用于生产环境。** 原始 `lightdock-rust` 二进制文件中，DFIRE/DFIRE2/DDNA 评分函数因外部参数文件缺失而在运行时崩溃，ANM 支持存在 stride 计算错误，多处代码在遇到边界条件（未知残基、ANM 原子数不匹配）时直接 panic 而非优雅降级。这些问题使得原始 Rust 版本实际上不可用于标准 LightDock 工作流。本工作通过全面 Bug 修复和 160 项集成测试验证，产出了第一个功能完整的 Rust LightDock 实现。
+**发现一：Rust 基线版本存在系统性缺陷，无法用于生产环境。** 原始 `lightdock-rust` 二进制文件中，DFIRE/DFIRE2/DDNA 评分函数因外部参数文件缺失而在运行时崩溃，ANM 支持存在 stride 计算错误，多处代码在遇到边界条件（未知残基、ANM 原子数不匹配）时直接 panic 而非优雅降级。这些问题使得原始 Rust 版本实际上不可用于标准 LightDock 工作流。本工作通过全面 Bug 修复、公开单元测试和开发阶段综合数值对比，产出了功能完整的 Rust LightDock 实现。
 
-**发现二：rayon 并行化 + `target-cpu=native` SIMD 自动向量化使 Rust-opt 全面超越 Python，且覆盖所有主要评分函数。** 通过将受体原子外循环并行化并启用原生 SIMD，Rust-opt 全部四个测试场景均超越 Python：pydock **3.0×**、dna+ANM **16.5×**、cpydock **19.2×**、dfire **25.5×**。初期误以为 Python NumPy 向量化不可逾越，实质上可通过 Rust rayon + 编译器 SIMD 自动向量化联合突破，无需手写汇编。
+**发现二：rayon 并行化 + SIMD 友好热路径使 LKlight 全面超越 Python，且覆盖所有主要评分函数。** 通过将受体原子外循环并行化，并把热路径重构为编译器易优化的连续数组与简单内循环，LKlight 全部四个测试场景均超越 Python：pydock **3.0×**、dna+ANM **16.5×**、cpydock **19.2×**、dfire **25.5×**。本机 benchmark 可进一步启用 native CPU 优化观察硬件上限，但公开 Release 二进制保持便携 baseline。
 
 ### 6.2 G3/G4 经验教训
 
@@ -482,10 +523,10 @@ cargo test --lib    # 29/29 单元测试
 本文介绍了 **LKlight v1.0**，一个功能完整、经全面测试验证的 LightDock 分子对接引擎高性能 Rust 实现。主要成果：
 
 1. **修复了原 Rust 基线版本的 4 个系统性 Bug**（DFIRE 崩溃、ANM stride 错误、未知残基 panic、atom_count 断言），产出第一个可用于生产的 Rust LightDock 实现；
-2. **通过 29/29 单元测试 + 160/160 集成测试**，全部 12 种评分函数与 Python 参考实现数值吻合；
-3. **全部测试场景全面超越 Python**：pydock **3.0×**、dna+ANM **16.5×**、cpydock **19.2×**、dfire **25.5×**；vs Rust-orig：pydock **26.5×**、dna **307×**、cpydock **163×**（dfire Rust-orig 崩溃，Rust-opt 为首个可用 Rust 实现）；
-4. **揭示了 G3/G4 HashMap 网格的性能回退根因**（343 次查询开销 >> O(N²) 直接遍历）并通过 H1（rayon 并行化）+ H2（`target-cpu=native`）完成修复，实现突破性性能提升；
-5. **证实 Rust rayon + 编译器 SIMD 自动向量化可超越 Python NumPy 隐式 SIMD**，无需手写汇编，为 Rust 科学计算实践提供参考。
+2. **公开仓库通过 29/29 单元测试，开发阶段通过 160/160 综合数值对比**，全部 12 类评分函数与 Python 参考实现数值吻合；
+3. **全部测试场景全面超越 Python**：pydock **3.0×**、dna+ANM **16.5×**、cpydock **19.2×**、dfire **25.5×**；vs Rust-orig：pydock **26.5×**、dna **307×**、cpydock **163×**（dfire Rust-orig 崩溃，LKlight 为可用 Rust 实现）；
+4. **揭示了 G3/G4 HashMap 网格的性能回退根因**（343 次查询开销 >> O(N²) 直接遍历）并通过 H1（rayon 并行化）+ H2（SIMD 友好热路径）完成修复，实现突破性性能提升；
+5. **证实 Rust rayon + 编译器友好数据布局可超越 Python NumPy 隐式 SIMD**，无需手写汇编，为 Rust 科学计算实践提供参考。
 
 ### 后续工作
 
@@ -538,8 +579,22 @@ To publish LKlight on GitHub in full GPL compliance, the following files are req
 | `README.md` | Project description with license badge | ✓ Present |
 | `Cargo.toml` | Correct `license = "GPL-3.0-or-later"` field | ✓ Present |
 | Source code | All Rust source files | ✓ `src/` directory |
+| `Cargo.lock` | Reproducible binary build | ✓ Present |
+| `.github/workflows/rust.yml` | Cross-platform CI | ✓ Present |
+| `RELEASE.md` | Release and binary asset guidance | ✓ Present |
+| `.gitattributes` | Preserve binary parameter files | ✓ Present |
 
 > **Note:** The `Cargo.lock` file should be committed for binary executables (as recommended by Cargo). The `target/` build directory should remain in `.gitignore`.
+
+### 8.5 Current Publication Status
+
+The public source repository is:
+
+```text
+https://github.com/LK-Studio1128/LKlight
+```
+
+Generated build artifacts (`target/`, `dist/`, `.DS_Store`, backup files) are intentionally excluded from Git. Pre-built macOS/Linux/Windows binaries should be uploaded as GitHub Release assets rather than committed to the source tree.
 
 ---
 
@@ -596,7 +651,7 @@ LKlight builds upon the intellectual and engineering foundations of LightDock, d
 | 4 | Bug 修复（Fix 1-4）；160/160 综合测试通过 | ✓ |
 | 5 | F1 sqrt_vdw_charges；F2 sd.rs 9Å 网格；F3 BufWriter；F4 qt [f64;3] | ✓ |
 | 6 | G1 pos/rot scratch；G2 movement 并行；G3/G4 HashMap 网格（产生回退） | G3/G4 已撤回 |
-| 7 | **H1** pydock/dna/cpydock rayon 并行外循环；**H2** target-cpu=native | ✓ **pydock 3.0×Py, 26.5×Orig** |
+| 7 | **H1** pydock/dna/cpydock rayon 并行外循环；**H2** SIMD 友好热路径与可选 native benchmark 构建 | ✓ **pydock 3.0×Py, 26.5×Orig** |
 | 8 | **I1** dfire rayon并行+移除 HashMap；**I2** dfire2 同；**I3** sd.rs 并行化 | ✓ **dfire 25.5×Py** (935ms→33ms) |
 
 ## Appendix B — Test Command Reference
@@ -608,7 +663,10 @@ cargo test --lib 2>&1 | tail -5
 # 性能基准
 bash benchmark.sh
 
-# 单评分函数测试（1PPE pydock，swarm 0）
-./target/release/LKlight run example/1ppe/setup.json \
-    example/1ppe/initial_positions_0.dat 100 pydock
+# 轻量夹具 smoke test（1AZP pydock，swarm 0）
+mkdir -p demo-1azp
+cd demo-1azp
+../target/release/LKlight setup ../tests/1azp/1azp_receptor.pdb \
+    ../tests/1azp/1azp_ligand.pdb -s 1 -g 200
+../target/release/LKlight run setup.json initial_positions_0.dat 100 pydock
 ```

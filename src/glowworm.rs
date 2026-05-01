@@ -5,7 +5,7 @@ use std::f64;
 
 pub struct Glowworm<'a> {
     pub id: u32,
-    pub translation: Vec<f64>,
+    pub translation: [f64; 3],
     pub rotation: Quaternion,
     pub rec_nmodes: Vec<f64>,
     pub lig_nmodes: Vec<f64>,
@@ -28,7 +28,7 @@ pub struct Glowworm<'a> {
 impl<'a> Glowworm<'a> {
     pub fn new(
         id: u32,
-        translation: Vec<f64>,
+        translation: [f64; 3],
         rotation: Quaternion,
         rec_nmodes: Vec<f64>,
         lig_nmodes: Vec<f64>,
@@ -71,7 +71,7 @@ impl<'a> Glowworm<'a> {
         self.step += 1;
     }
 
-    pub fn distance(&mut self, other: &Glowworm) -> f64 {
+    pub fn distance(&self, other: &Glowworm) -> f64 {
         let x1 = self.translation[0];
         let x2 = other.translation[0];
         let y1 = self.translation[1];
@@ -81,9 +81,9 @@ impl<'a> Glowworm<'a> {
         ((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2)).sqrt()
     }
 
-    pub fn is_neighbor(&mut self, other: &Glowworm) -> bool {
+    pub fn is_neighbor(&self, other: &Glowworm) -> bool {
         if self.id != other.id && self.luciferin < other.luciferin {
-            return self.distance(other) < self.vision_range;
+            return distance_sq(self, other) < self.vision_range * self.vision_range;
         }
         false
     }
@@ -96,7 +96,7 @@ impl<'a> Glowworm<'a> {
     }
 
     pub fn compute_probability_moving_toward_neighbor(&mut self, luciferins: &[f64]) {
-        self.probabilities = Vec::new();
+        self.probabilities.clear();
 
         let mut total_sum: f64 = 0.0;
         let mut difference: f64;
@@ -136,67 +136,47 @@ impl<'a> Glowworm<'a> {
         self.moved = self.id != other_id;
         if self.id != other_id {
             // Translation component
-            let mut delta_x: Vec<f64> = vec![
-                other_position[0] - self.translation[0],
-                other_position[1] - self.translation[1],
-                other_position[2] - self.translation[2],
-            ];
-            let norm: f64 =
-                (delta_x[0] * delta_x[0] + delta_x[1] * delta_x[1] + delta_x[2] * delta_x[2])
-                    .sqrt();
+            let dx = other_position[0] - self.translation[0];
+            let dy = other_position[1] - self.translation[1];
+            let dz = other_position[2] - self.translation[2];
+            let norm: f64 = (dx * dx + dy * dy + dz * dz).sqrt();
             let coef: f64 = DEFAULT_TRANSLATION_STEP / norm;
-            delta_x[0] *= coef;
-            delta_x[1] *= coef;
-            delta_x[2] *= coef;
-            self.translation[0] += delta_x[0];
-            self.translation[1] += delta_x[1];
-            self.translation[2] += delta_x[2];
+            self.translation[0] += dx * coef;
+            self.translation[1] += dy * coef;
+            self.translation[2] += dz * coef;
 
             // Rotation component
             self.rotation = self.rotation.slerp(other_rotation, DEFAULT_ROTATION_STEP);
+            self.rotation.normalize();
 
             // ANM component
             if self.use_anm && !self.rec_nmodes.is_empty() {
-                let mut delta_anm: Vec<f64> = Vec::new();
-                let mut cum_norm: f64 = 0.0;
-                for i in 0..self.rec_nmodes.len() {
-                    let diff = other_anm_rec[i] - self.rec_nmodes[i];
-                    delta_anm.push(diff);
-                    cum_norm += diff * diff
-                }
-                let anm_rec_norm: f64 = cum_norm.sqrt();
-                let anm_rec_coef: f64 = DEFAULT_NMODES_STEP / anm_rec_norm;
-                for i in 0..self.rec_nmodes.len() {
-                    delta_anm[i] *= anm_rec_coef;
-                    self.rec_nmodes[i] += delta_anm[i];
-                }
+                let mut cum2 = 0.0f64;
+                for (a, &b) in self.rec_nmodes.iter().zip(other_anm_rec.iter()) { cum2 += (b-a)*(b-a); }
+                let coef = DEFAULT_NMODES_STEP / cum2.sqrt().max(1e-14);
+                for (a, &b) in self.rec_nmodes.iter_mut().zip(other_anm_rec.iter()) { *a += (b - *a) * coef; }
             }
             if self.use_anm && !self.lig_nmodes.is_empty() {
-                let mut delta_anm: Vec<f64> = Vec::new();
-                let mut cum_norm: f64 = 0.0;
-                for i in 0..self.lig_nmodes.len() {
-                    let diff = other_anm_lig[i] - self.lig_nmodes[i];
-                    delta_anm.push(diff);
-                    cum_norm += diff * diff
-                }
-                let anm_lig_norm: f64 = cum_norm.sqrt();
-                let anm_lig_coef: f64 = DEFAULT_NMODES_STEP / anm_lig_norm;
-                for i in 0..self.lig_nmodes.len() {
-                    delta_anm[i] *= anm_lig_coef;
-                    self.lig_nmodes[i] += delta_anm[i];
-                }
+                let mut cum2 = 0.0f64;
+                for (a, &b) in self.lig_nmodes.iter().zip(other_anm_lig.iter()) { cum2 += (b-a)*(b-a); }
+                let coef = DEFAULT_NMODES_STEP / cum2.sqrt().max(1e-14);
+                for (a, &b) in self.lig_nmodes.iter_mut().zip(other_anm_lig.iter()) { *a += (b - *a) * coef; }
             }
         }
     }
 }
 
+/// Returns squared Euclidean distance between two glowworms (no sqrt — use for comparisons).
+#[inline]
+pub fn distance_sq(one: &Glowworm, two: &Glowworm) -> f64 {
+    let dx = one.translation[0] - two.translation[0];
+    let dy = one.translation[1] - two.translation[1];
+    let dz = one.translation[2] - two.translation[2];
+    dx * dx + dy * dy + dz * dz
+}
+
+/// Returns Euclidean distance between two glowworms.
+#[inline]
 pub fn distance(one: &Glowworm, two: &Glowworm) -> f64 {
-    // Calculate the distance between two glowworms using their translation vector
-    let x1 = one.translation[0];
-    let x2 = two.translation[0];
-    let y1 = one.translation[1];
-    let y2 = two.translation[1];
-    let z1 = one.translation[2];
-    let z2 = two.translation[2];
-    ((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2)).sqrt()
+    distance_sq(one, two).sqrt()
 }

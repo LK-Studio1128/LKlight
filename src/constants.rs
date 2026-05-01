@@ -24,5 +24,5 @@ pub const MEMBRANE_PENALTY_SCORE: f64 = 999.0;
 pub const DEFAULT_NMODES_STEP: f64 = 0.5;
 
 // 1D NumPy arrays containing calculated ANM from ProDy
-pub const DEFAULT_REC_NM_FILE: &str = "rec_nm.npy";
-pub const DEFAULT_LIG_NM_FILE: &str = "lig_nm.npy";
+pub const DEFAULT_REC_NM_FILE: &str = "lightdock_rec.nm.npy";
+pub const DEFAULT_LIG_NM_FILE: &str = "lightdock_lig.nm.npy";

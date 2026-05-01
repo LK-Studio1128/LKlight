@@ -1,13 +1,15 @@
-use super::glowworm::distance;
-use super::glowworm::Glowworm;
+use super::glowworm::{distance_sq, Glowworm};
 use super::qt::Quaternion;
 use super::scoring::Score;
 use rand::Rng;
+use rayon::prelude::*;
 use std::fs::File;
-use std::io::{Error, Write};
+use std::io::{BufWriter, Error, Write};
 
 pub struct Swarm<'a> {
     pub glowworms: Vec<Glowworm<'a>>,
+    pos_scratch:   Vec<[f64; 3]>,
+    rot_scratch:   Vec<Quaternion>,
 }
 
 impl<'a> Default for Swarm<'a> {
@@ -19,7 +21,9 @@ impl<'a> Default for Swarm<'a> {
 impl<'a> Swarm<'a> {
     pub fn new() -> Self {
         Swarm {
-            glowworms: Vec::new(),
+            glowworms:   Vec::new(),
+            pos_scratch: Vec::new(),
+            rot_scratch: Vec::new(),
         }
     }
 
@@ -33,7 +37,7 @@ impl<'a> Swarm<'a> {
     ) {
         for (i, position) in positions.iter().enumerate() {
             // Translation component
-            let translation = vec![position[0], position[1], position[2]];
+            let translation = [position[0], position[1], position[2]];
             // Rotation component
             let rotation = Quaternion::new(position[3], position[4], position[5], position[6]);
             // ANM for receptor
@@ -64,70 +68,59 @@ impl<'a> Swarm<'a> {
     }
 
     pub fn update_luciferin(&mut self) {
-        for glowworm in self.glowworms.iter_mut() {
-            glowworm.compute_luciferin();
-        }
+        self.glowworms.par_iter_mut().for_each(|gw| gw.compute_luciferin());
     }
 
     pub fn movement_phase(&mut self, rng: &mut rand::prelude::StdRng) {
-        // Save original positions
-        let mut positions: Vec<Vec<f64>> = Vec::new();
-        let mut rotations: Vec<Quaternion> = Vec::new();
-        let mut anm_recs: Vec<Vec<f64>> = Vec::new();
-        let mut anm_ligs: Vec<Vec<f64>> = Vec::new();
-        for glowworm in self.glowworms.iter() {
-            positions.push(glowworm.translation.clone());
-            rotations.push(glowworm.rotation);
-            anm_recs.push(glowworm.rec_nmodes.clone());
-            anm_ligs.push(glowworm.lig_nmodes.clone());
+        let n = self.glowworms.len();
+
+        // ── G1: fill reusable scratch (no malloc after first call) ───────────
+        self.pos_scratch.resize(n, [0.0; 3]);
+        self.rot_scratch.resize(n, Quaternion::new(1.0, 0.0, 0.0, 0.0));
+        for (i, gw) in self.glowworms.iter().enumerate() {
+            self.pos_scratch[i] = gw.translation;
+            self.rot_scratch[i] = gw.rotation;
+        }
+        // ANM still cloned (per-glowworm snapshot; empty when use_anm=false)
+        let anm_recs: Vec<Vec<f64>> = self.glowworms.iter().map(|gw| gw.rec_nmodes.clone()).collect();
+        let anm_ligs: Vec<Vec<f64>> = self.glowworms.iter().map(|gw| gw.lig_nmodes.clone()).collect();
+
+        // ── Parallel neighbor search (sqrt-free, already parallelized) ───────
+        let neighbors: Vec<Vec<u32>> = self.glowworms
+            .par_iter()
+            .map(|g1| {
+                let vr2 = g1.vision_range * g1.vision_range;
+                self.glowworms
+                    .iter()
+                    .filter(|g2| g2.id != g1.id && g1.luciferin < g2.luciferin
+                                 && distance_sq(g1, g2) < vr2)
+                    .map(|g2| g2.id)
+                    .collect()
+            })
+            .collect();
+
+        // ── G1: move neighbor lists (no clone) + compute probabilities ───────
+        let luciferins: Vec<f64> = self.glowworms.iter().map(|gw| gw.luciferin).collect();
+        for (gw, nbrs) in self.glowworms.iter_mut().zip(neighbors.into_iter()) {
+            gw.neighbors = nbrs;
+            gw.compute_probability_moving_toward_neighbor(&luciferins);
         }
 
-        // First search for each glowworm's neighbors
-        let mut neighbors: Vec<Vec<u32>> = Vec::new();
-        for i in 0..self.glowworms.len() {
-            let mut this_neighbors = Vec::new();
-            let g1 = &self.glowworms[i];
-            for j in 0..self.glowworms.len() {
-                if i != j {
-                    let g2 = &self.glowworms[j];
-                    if g1.luciferin < g2.luciferin {
-                        let distance = distance(g1, g2);
-                        if distance < g1.vision_range {
-                            this_neighbors.push(g2.id);
-                        }
-                    }
-                }
-            }
-            neighbors.push(this_neighbors);
-        }
-
-        // Second compute probability moving towards the neighbor
-        let mut luciferins = Vec::new();
-        for glowworm in self.glowworms.iter_mut() {
-            luciferins.push(glowworm.luciferin);
-        }
-        for i in 0..self.glowworms.len() {
-            let glowworm = &mut self.glowworms[i];
-            glowworm.neighbors = neighbors[i].clone();
-            glowworm.compute_probability_moving_toward_neighbor(&luciferins);
-        }
-
-        // Finally move to the selected position
-        for i in 0..self.glowworms.len() {
-            let glowworm = &mut self.glowworms[i];
-            let neighbor_id = glowworm.select_random_neighbor(rng.gen::<f64>());
-            let position = &positions[neighbor_id as usize];
-            let rotation = &rotations[neighbor_id as usize];
-            let anm_rec = &anm_recs[neighbor_id as usize];
-            let anm_lig = &anm_ligs[neighbor_id as usize];
-            glowworm.move_towards(neighbor_id, position, rotation, anm_rec, anm_lig);
-            glowworm.update_vision_range();
-        }
+        // ── G2: pre-generate randoms, then parallel move ─────────────────────
+        let randoms: Vec<f64> = (0..n).map(|_| rng.gen()).collect();
+        let (gws, pos_s, rot_s) = (&mut self.glowworms, &self.pos_scratch, &self.rot_scratch);
+        gws.par_iter_mut()
+            .zip(randoms.par_iter())
+            .for_each(|(gw, &r)| {
+                let nid = gw.select_random_neighbor(r) as usize;
+                gw.move_towards(nid as u32, &pos_s[nid], &rot_s[nid], &anm_recs[nid], &anm_ligs[nid]);
+                gw.update_vision_range();
+            });
     }
 
     pub fn save(&mut self, step: u32, output_directory: &str) -> Result<(), Error> {
-        let path = format!("{}/gso_{:?}.out", output_directory, step);
-        let mut output = File::create(path)?;
+        let path = format!("{}/gso_{}.out", output_directory, step);
+        let mut output = BufWriter::new(File::create(path)?);
         writeln!(
             output,
             "#Coordinates  RecID  LigID  Luciferin  Neighbor's number  Vision Range  Scoring"

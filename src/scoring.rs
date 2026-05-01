@@ -1,14 +1,23 @@
 use super::qt::Quaternion;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Method {
+    CPYDOCK,
+    DDNA,
     DFIRE,
+    DFIRE2,
     DNA,
+    MJ3H,
+    PISA,
     PYDOCK,
+    SD,
+    SIPPER,
+    TOBI,
+    VDW,
 }
 
-pub trait Score {
+pub trait Score: Send + Sync {
     fn energy(
         &self,
         translation: &[f64],

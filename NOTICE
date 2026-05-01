@@ -1,0 +1,95 @@
+LKlight — High-Performance Rust Implementation of the LightDock Docking Engine
+Copyright (C) 2024–2025  LKlight Contributors
+
+================================================================================
+ORIGINAL WORK ATTRIBUTION
+================================================================================
+
+This product includes software originally developed as part of the LightDock
+project:
+
+  LightDock: A New Multi-Scale Approach to Protein–Protein Docking
+  https://lightdock.org
+  https://github.com/lightdock/lightdock
+  https://github.com/lightdock/lightdock-rust
+
+  Copyright (C) 2015–2024  Brian Jiménez-García, Jorge Roel-Touris,
+  and the LightDock development team at the Life Sciences Department,
+  Barcelona Supercomputing Center (BSC-CNS), Barcelona, Spain.
+
+The original LightDock software is licensed under the GNU General Public
+License, version 3 (GPL-3.0-or-later). LKlight is a derivative work and
+is distributed under the same license (GPL-3.0-or-later). See LICENSE for
+the full license text.
+
+Primary reference for the original work:
+
+  Jiménez-García B, Roel-Touris J, Romero-Durana M, Vidal M,
+  Jiménez-González D, Fernández-Recio J.
+  "LightDock: a new multi-scale approach to protein–protein docking."
+  Bioinformatics. 2018;34(1):49–55. doi:10.1093/bioinformatics/btx555
+
+  Roel-Touris J, Bonvin AMJJ, Jiménez-García B.
+  "LightDock goes information-driven."
+  Bioinformatics. 2020;36(3):950–952. doi:10.1093/bioinformatics/btz642
+
+================================================================================
+SIGNIFICANT MODIFICATIONS BY LKLIGHT CONTRIBUTORS
+================================================================================
+
+The following modifications were made to the upstream lightdock-rust codebase
+to produce LKlight:
+
+Bug Fixes:
+  - Embedded DFIRE, DFIRE2, and dDNA parameter matrices at compile time
+    (src/dfire.rs, src/dfire2.rs, src/ddna.rs) — eliminating runtime panics
+    caused by missing external parameter files.
+  - Corrected ANM mode-vector stride computation in src/pisa.rs, src/ddna.rs,
+    src/cpydock.rs, and src/sd.rs — the upstream code used a fixed stride
+    inconsistent with the actual nmodes storage layout, causing out-of-bounds
+    reads with ANM-enabled runs.
+  - Added graceful handling for non-standard residues in src/dfire.rs —
+    upstream code panicked on any residue outside the standard 20 amino acids.
+  - Removed erroneous atom_count() assertion in src/simulator.rs that
+    incorrectly assumed ANM covered all heavy atoms rather than Cα atoms only.
+
+Performance Optimizations:
+  - rayon-based parallelization of the receptor-atom outer loop in pydock.rs,
+    dna.rs, cpydock.rs, dfire.rs, dfire2.rs, and sd.rs (H1/I1/I2/I3).
+  - Refactored scoring hot paths into SIMD-friendly contiguous loops and
+    reduced allocation pressure; local benchmark builds may additionally enable
+    target-cpu=native, while published binaries use portable CPU baselines.
+  - Precomputed sqrt_vdw_charges arrays eliminating hot-path sqrt() calls (F1).
+  - Implemented 3D spatial hash grid in sd.rs (cell = 9 Å, 27-cell query) for
+    genuine O(N²)→O(N) sparsification at short cutoff distances (F2).
+  - Replaced per-line write() syscalls with BufWriter batching in swarm.rs (F3).
+  - Changed qt::rotate() return type from Vec<f64> to [f64;3] (stack) (F4).
+  - Replaced heap-allocated Glowworm::translation with [f64;3] (F5).
+  - Added pos_scratch/rot_scratch scratch buffers to Swarm for reuse (G1).
+  - Parallelized GSO movement_phase() with rayon::par_iter_mut() (G2).
+  - thread_local! scratch-buffer reuse in all scoring functions.
+
+Branding / Interface:
+  - Project renamed from lightdock-rust to LKlight; binary renamed to LKlight.
+  - Consolidated CLI entry point (src/bin/lightdock.rs) with unified subcommand
+    interface (setup, run, generate, cluster, rank, top, filter, score,
+    trajectory, pipeline).
+
+================================================================================
+THIRD-PARTY DEPENDENCIES
+================================================================================
+
+LKlight uses the following third-party Rust crates (all compatible with GPL):
+
+  rayon        — Apache-2.0 OR MIT   https://github.com/rayon-rs/rayon
+  rand         — Apache-2.0 OR MIT   https://github.com/rust-random/rand
+  serde        — Apache-2.0 OR MIT   https://github.com/serde-rs/serde
+  serde_json   — Apache-2.0 OR MIT   https://github.com/serde-rs/json
+  nalgebra     — Apache-2.0          https://github.com/dimforge/nalgebra
+  pdbtbx       — MIT                 https://github.com/douweschulte/pdbtbx
+  npyz         — MIT                 https://github.com/ExpHP/npyz
+  lazy_static  — Apache-2.0 OR MIT   https://github.com/rust-lang-nursery/lazy-static.rs
+  log          — Apache-2.0 OR MIT   https://github.com/rust-lang/log
+  env_logger   — Apache-2.0 OR MIT   https://github.com/rust-cli/env_logger
+
+For dependency license details, run: cargo license

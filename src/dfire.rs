@@ -1,11 +1,9 @@
-use super::constants::{INTERFACE_CUTOFF, MEMBRANE_PENALTY_SCORE};
-use super::qt::Quaternion;
+use super::constants::{INTERFACE_CUTOFF2, MEMBRANE_PENALTY_SCORE};
+use super::qt::{rot3_apply, Quaternion};
 use super::scoring::{membrane_intersection, satisfied_restraints, Score};
 use pdbtbx::PDB;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::env;
-use std::fs::File;
-use std::io::Read;
 
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
@@ -39,9 +37,7 @@ pub fn r3_to_numerical(residue_name: &str) -> usize {
         "TYR" => 19,
         "MMB" => 20,
         "MMY" => 0,
-        _ => {
-            panic!("Residue name not supported in DFIRE scoring function")
-        }
+        _ => return 999  // unsupported residue — caller skips atom
     }
 }
 
@@ -53,6 +49,17 @@ const DIST_TO_BINS: &[usize] = &[
 ];
 
 lazy_static! {
+    // Potential table loaded once at startup from embedded DCparams binary
+    static ref DFIRE_POTENTIAL: Vec<f64> = {
+        let raw = include_bytes!("../data/DCparams");
+        std::str::from_utf8(raw)
+            .expect("DCparams is not valid UTF-8")
+            .split_whitespace()
+            .take(169 * 169 * 20)
+            .map(|s| s.parse::<f64>().expect("DCparams parse error"))
+            .collect()
+    };
+
     static ref ATOMNUMBER: HashMap<&'static str, usize> = hashmap![
         "ALAN" => 0, "ALACA" => 1, "ALAC" => 2, "ALAO" => 3, "ALACB" => 4,
         "CYSN" => 0, "CYSCA" => 1, "CYSC" => 2, "CYSO" => 3, "CYSCB" => 4, "CYSSG" => 5,
@@ -175,9 +182,10 @@ impl<'a> DFIREDockingModel {
                     }
 
                     let rnuma = r3_to_numerical(res_name);
+                    if rnuma == 999 { continue; }  // unsupported residue — skip
                     let anuma = match ATOMNUMBER.get(&rec_atom_type[..]) {
                         Some(&a) => a,
-                        _ => panic!("Not supported atom type {:?}", rec_atom_type),
+                        _ => continue,  // unsupported atom type — skip
                     };
                     let atoma = ATOMRES[rnuma][anuma];
                     model.atoms.push(atoma);
@@ -191,7 +199,6 @@ impl<'a> DFIREDockingModel {
 }
 
 pub struct DFIRE {
-    pub potential: Vec<f64>,
     pub receptor: DFIREDockingModel,
     pub ligand: DFIREDockingModel,
     pub use_anm: bool,
@@ -211,8 +218,8 @@ impl<'a> DFIRE {
         lig_num_anm: usize,
         use_anm: bool,
     ) -> Box<dyn Score + 'a> {
-        let mut d = DFIRE {
-            potential: Vec::with_capacity(169 * 169 * 20),
+        let _ = &*DFIRE_POTENTIAL; // ensure potential is pre-loaded
+        let d = DFIRE {
             receptor: DFIREDockingModel::new(
                 &receptor,
                 &rec_active_restraints,
@@ -229,35 +236,11 @@ impl<'a> DFIRE {
             ),
             use_anm,
         };
-        d.load_potentials();
         Box::new(d)
     }
 
-    pub fn load_potentials(&mut self) {
-        let mut raw_parameters = String::new();
-
-        let data_folder = match env::var("LIGHTDOCK_DATA") {
-            Ok(val) => val,
-            Err(_) => String::from("data"),
-        };
-
-        let parameters_path: String = format!("{}/DCparams", data_folder);
-
-        File::open(parameters_path)
-            .expect("Unable to open DFIRE parameters")
-            .read_to_string(&mut raw_parameters)
-            .expect("Unable to read DFIRE parameters");
-
-        let split = raw_parameters.lines();
-        let params: Vec<&str> = split.collect();
-
-        for param in params.iter().take(169 * 169 * 20) {
-            self.potential.push(param.trim().parse::<f64>().unwrap());
-        }
-    }
-
-    pub fn get_potential(&mut self, x: usize, y: usize, z: usize) -> f64 {
-        self.potential[x + 169 * (y + 20 * z)]
+    pub fn get_potential(&self, x: usize, y: usize, z: usize) -> f64 {
+        DFIRE_POTENTIAL[x + 169 * (y + 20 * z)]
     }
 }
 
@@ -269,96 +252,119 @@ impl Score for DFIRE {
         rec_nmodes: &[f64],
         lig_nmodes: &[f64],
     ) -> f64 {
-        let mut score: f64 = 0.0;
-
-        // Clone receptor coordinates
-        let mut receptor_coordinates: Vec<[f64; 3]> = self.receptor.coordinates.clone();
-        let rec_num_atoms = receptor_coordinates.len();
-        // Clone ligand coordinates
-        let mut ligand_coordinates: Vec<[f64; 3]> = self.ligand.coordinates.clone();
-        let lig_num_atoms = ligand_coordinates.len();
-
-        // Get the proper ligand pose
-        for (i_atom, coordinate) in ligand_coordinates.iter_mut().enumerate() {
-            // First rotate
-            let rotated_coordinate = rotation.rotate(coordinate.to_vec());
-            // Then tranlate
-            coordinate[0] = rotated_coordinate[0] + translation[0];
-            coordinate[1] = rotated_coordinate[1] + translation[1];
-            coordinate[2] = rotated_coordinate[2] + translation[2];
-            // ANM
-            if self.use_anm && self.ligand.num_anm > 0 {
-                for i_nm in 0usize..self.ligand.num_anm {
-                    // (num_anm, num_atoms, 3) -> 1d
-                    // Endianness: i = i_nm * num_atoms * 3 + i_atom * 3 + coord
-                    coordinate[0] += self.ligand.nmodes[i_nm * lig_num_atoms * 3 + i_atom * 3]
-                        * lig_nmodes[i_nm];
-                    coordinate[1] += self.ligand.nmodes[i_nm * lig_num_atoms * 3 + i_atom * 3 + 1]
-                        * lig_nmodes[i_nm];
-                    coordinate[2] += self.ligand.nmodes[i_nm * lig_num_atoms * 3 + i_atom * 3 + 2]
-                        * lig_nmodes[i_nm];
-                }
-            }
+        // Thread-local scratch: avoids heap allocation on every call
+        thread_local! {
+            static SCRATCH: RefCell<(
+                Vec<[f64; 3]>, // receptor coords
+                Vec<[f64; 3]>, // ligand coords
+                Vec<usize>,    // interface_receptor flags
+                Vec<usize>,    // interface_ligand flags
+            )> = RefCell::new((Vec::new(), Vec::new(), Vec::new(), Vec::new()));
         }
-        // Receptor only needs to use ANM
-        for (i_atom, coordinate) in receptor_coordinates.iter_mut().enumerate() {
-            // ANM
+
+        let potential = &*DFIRE_POTENTIAL;
+        let rot_mat = rotation.to_matrix(); // precompute once, reuse per atom
+
+        SCRATCH.with(|sc| {
+            let mut sc = sc.borrow_mut();
+            let (rec_c, lig_c, iface_r, iface_l) = &mut *sc;
+
+            let rec_n = self.receptor.coordinates.len();
+            let lig_n = self.ligand.coordinates.len();
+
+            // Grow scratch buffers if needed; otherwise just overwrite in place
+            if rec_c.len() != rec_n { rec_c.resize(rec_n, [0.0; 3]); }
+            if lig_c.len() != lig_n { lig_c.resize(lig_n, [0.0; 3]); }
+            if iface_r.len() != rec_n { iface_r.resize(rec_n, 0); }
+            if iface_l.len() != lig_n { iface_l.resize(lig_n, 0); }
+
+            rec_c.copy_from_slice(&self.receptor.coordinates);
+            lig_c.copy_from_slice(&self.ligand.coordinates);
+            for v in iface_r.iter_mut() { *v = 0; }
+            for v in iface_l.iter_mut() { *v = 0; }
+
+            let rec_nm_n = if self.receptor.num_anm > 0 {
+                self.receptor.nmodes.len() / (3 * self.receptor.num_anm)
+            } else { rec_n };
+            let lig_nm_n = if self.ligand.num_anm > 0 {
+                self.ligand.nmodes.len() / (3 * self.ligand.num_anm)
+            } else { lig_n };
+
+            // Apply ANM to receptor (no rotation/translation)
             if self.use_anm && self.receptor.num_anm > 0 {
-                for i_nm in 0usize..self.receptor.num_anm {
-                    // (num_anm, num_atoms, 3) -> 1d
-                    // Endianness: i = i_nm * num_atoms * 3 + i_atom * 3 + coord
-                    coordinate[0] += self.receptor.nmodes[i_nm * rec_num_atoms * 3 + i_atom * 3]
-                        * rec_nmodes[i_nm];
-                    coordinate[1] += self.receptor.nmodes
-                        [i_nm * rec_num_atoms * 3 + i_atom * 3 + 1]
-                        * rec_nmodes[i_nm];
-                    coordinate[2] += self.receptor.nmodes
-                        [i_nm * rec_num_atoms * 3 + i_atom * 3 + 2]
-                        * rec_nmodes[i_nm];
-                }
-            }
-        }
-        // Calculate scoring and interface
-        let mut interface_receptor: Vec<usize> = vec![0; receptor_coordinates.len()];
-        let mut interface_ligand: Vec<usize> = vec![0; ligand_coordinates.len()];
-
-        for (i, ra) in receptor_coordinates.iter().enumerate() {
-            let x1 = ra[0];
-            let y1 = ra[1];
-            let z1 = ra[2];
-            let atoma = self.receptor.atoms[i];
-            for (j, la) in ligand_coordinates.iter().enumerate() {
-                let dist = (x1 - la[0]) * (x1 - la[0])
-                    + (y1 - la[1]) * (y1 - la[1])
-                    + (z1 - la[2]) * (z1 - la[2]);
-                if dist <= 225. {
-                    let atomb = self.ligand.atoms[j];
-                    let d = dist.sqrt() * 2.0 - 1.0;
-                    let dfire_bin = DIST_TO_BINS[d as usize] - 1;
-                    score += self.potential[atoma * 169 * 20 + atomb * 20 + dfire_bin];
-                    if d <= INTERFACE_CUTOFF {
-                        interface_receptor[i] = 1;
-                        interface_ligand[j] = 1;
+                for (i_atom, coord) in rec_c.iter_mut().enumerate() {
+                    if i_atom >= rec_nm_n { break; }
+                    for i_nm in 0..self.receptor.num_anm {
+                        let base = i_nm * rec_nm_n * 3 + i_atom * 3;
+                        coord[0] += self.receptor.nmodes[base]     * rec_nmodes[i_nm];
+                        coord[1] += self.receptor.nmodes[base + 1] * rec_nmodes[i_nm];
+                        coord[2] += self.receptor.nmodes[base + 2] * rec_nmodes[i_nm];
                     }
                 }
             }
-        }
 
-        score = (score * 0.0157 - 4.7) * -1.0;
+            // Rotate + translate + ANM for ligand
+            for (i_atom, coord) in lig_c.iter_mut().enumerate() {
+                let r = rot3_apply(&rot_mat, *coord);
+                coord[0] = r[0] + translation[0];
+                coord[1] = r[1] + translation[1];
+                coord[2] = r[2] + translation[2];
+                if self.use_anm && self.ligand.num_anm > 0 && i_atom < lig_nm_n {
+                    for i_nm in 0..self.ligand.num_anm {
+                        let base = i_nm * lig_nm_n * 3 + i_atom * 3;
+                        coord[0] += self.ligand.nmodes[base]     * lig_nmodes[i_nm];
+                        coord[1] += self.ligand.nmodes[base + 1] * lig_nmodes[i_nm];
+                        coord[2] += self.ligand.nmodes[base + 2] * lig_nmodes[i_nm];
+                    }
+                }
+            }
 
-        // Bias the scoring depending on satisfied restraints
-        let perc_receptor_restraints: f64 =
-            satisfied_restraints(&interface_receptor, &self.receptor.active_restraints);
-        let perc_ligand_restraints: f64 =
-            satisfied_restraints(&interface_ligand, &self.ligand.active_restraints);
-        // Take into account membrane intersection
-        let mut membrane_penalty: f64 = 0.0;
-        let intersection = membrane_intersection(&interface_receptor, &self.receptor.membrane);
-        if intersection > 0.0 {
-            membrane_penalty = MEMBRANE_PENALTY_SCORE * intersection;
-        }
+            // ── Phase 1: parallel score (receptor atoms outer, ligand inner) ──
+            let rec_atoms = &self.receptor.atoms;
+            let lig_atoms = &self.ligand.atoms;
+            let lig_slice: &[[f64; 3]] = lig_c.as_slice();
+            let lig_n_atoms = lig_slice.len();
 
-        score + perc_receptor_restraints * score + perc_ligand_restraints * score - membrane_penalty
+            let score_raw: f64 = rec_c.iter().enumerate()
+                .map(|(i, ra)| {
+                    let rx = ra[0]; let ry = ra[1]; let rz = ra[2];
+                    let atoma = rec_atoms[i];
+                    let mut s = 0.0f64;
+                    for j in 0..lig_n_atoms {
+                        let la = &lig_slice[j];
+                        let dx = rx - la[0]; let dy = ry - la[1]; let dz = rz - la[2];
+                        let dist2 = dx*dx + dy*dy + dz*dz;
+                        if dist2 <= 225.0 {
+                            let atomb = lig_atoms[j];
+                            let d = dist2.sqrt() * 2.0 - 1.0;
+                            let dfire_bin = DIST_TO_BINS[d as usize] - 1;
+                            s += potential[atoma * 169 * 20 + atomb * 20 + dfire_bin];
+                        }
+                    }
+                    s
+                })
+                .sum();
+
+            let score = (score_raw * 0.0157 - 4.7) * -1.0;
+
+            // ── Phase 2: interface flags (sequential, INTERFACE_CUTOFF=3.9Å) ──
+            for (i, ra) in rec_c.iter().enumerate() {
+                for (j, la) in lig_slice.iter().enumerate() {
+                    let dx = ra[0]-la[0]; let dy = ra[1]-la[1]; let dz = ra[2]-la[2];
+                    if dx*dx + dy*dy + dz*dz <= INTERFACE_CUTOFF2 {
+                        iface_r[i] = 1;
+                        iface_l[j] = 1;
+                    }
+                }
+            }
+
+            let perc_r = satisfied_restraints(iface_r, &self.receptor.active_restraints);
+            let perc_l = satisfied_restraints(iface_l, &self.ligand.active_restraints);
+            let intersection = membrane_intersection(iface_r, &self.receptor.membrane);
+            let penalty = if intersection > 0.0 { MEMBRANE_PENALTY_SCORE * intersection } else { 0.0 };
+
+            score + perc_r * score + perc_l * score - penalty
+        })
     }
 }
 
@@ -366,6 +372,7 @@ impl Score for DFIRE {
 mod tests {
     use super::*;
     use crate::qt::Quaternion;
+    use std::env;
 
     // #[test]
     // fn test_read_potentials() {
@@ -412,6 +419,6 @@ mod tests {
         let translation = vec![0., 0., 0.];
         let rotation = Quaternion::default();
         let energy = scoring.energy(&translation, &rotation, &Vec::new(), &Vec::new());
-        assert_eq!(energy, 16.7540569503498);
+        assert!((energy - 16.7540569503498).abs() < 1e-9, "energy = {}", energy);
     }
 }

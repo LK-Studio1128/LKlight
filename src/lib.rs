@@ -2,14 +2,26 @@
 extern crate lazy_static;
 extern crate rand;
 
+pub mod amber;
+pub mod anm;
 pub mod constants;
+pub mod cpydock;
+pub mod ddna;
 pub mod dfire;
+pub mod dfire2;
 pub mod dna;
 pub mod glowworm;
+pub mod mj3h;
+pub mod pisa;
 pub mod pydock;
 pub mod qt;
+pub mod sd;
 pub mod scoring;
+pub mod simulator;
+pub mod sipper;
 pub mod swarm;
+pub mod tobi;
+pub mod vdw;
 
 use log::info;
 use rand::rngs::StdRng;

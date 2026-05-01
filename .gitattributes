@@ -1,0 +1,9 @@
+# Ensure consistent line endings for text source files
+* text=auto
+
+# Force binary treatment for embedded data files (prevents CRLF corruption)
+data/DCparams            binary
+data/dfire2_energies.npy binary
+data/MJ_potentials.dat   binary
+data/fort.21_xscore_noH_Met binary
+data/pisa.params         binary

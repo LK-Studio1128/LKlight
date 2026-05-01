@@ -1,15 +1,21 @@
 [package]
-name = "lightdock"
-version = "0.3.2"
-authors = ["Brian Jimenez Garcia <br.jimenezgarcia@gmail.com>"]
+name = "lklight"
+version = "1.0.0"
+authors = ["LKlight Contributors"]
 edition = "2021"
-license = "GPL-3.0-only"
-description = "Macromolecular docking software based on the GSO algorithm"
-homepage = "https://lightdock.org"
-repository = "https://github.com/lightdock/lightdock-rust"
+license = "GPL-3.0-or-later"
+description = "LKlight v1.0 — high-performance Rust reimplementation of LightDock molecular docking (GSO, 12 scoring-function families, rayon parallelism, portable binaries)"
+homepage = "https://github.com/LK-Studio1128/LKlight"
+repository = "https://github.com/LK-Studio1128/LKlight"
+readme = "README.md"
+keywords = ["docking", "bioinformatics", "molecular-docking", "protein", "gso"]
+categories = ["science", "simulation"]
+autobins = false
 
 [dependencies]
 rand = "0.7.3"
+rayon = "1"
+nalgebra = "0.33"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.115"
 pdbtbx = "0.11.0"
@@ -17,6 +23,10 @@ lazy_static = "1.4.0"
 npyz = "0.8.3"
 log = "0.4.21"
 env_logger = "0.11.3"
+
+[[bin]]
+name = "LKlight"
+path = "src/bin/lightdock.rs"
 
 [lints.clippy]
 borrowed_box = "allow"

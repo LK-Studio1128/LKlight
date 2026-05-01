@@ -1,8 +1,4 @@
-use super::constants::{INTERFACE_CUTOFF2, MEMBRANE_PENALTY_SCORE};
-use super::qt::{rot3_apply, Quaternion};
-use std::cell::RefCell;
-use super::scoring::{membrane_intersection, satisfied_restraints, Score};
-use pdbtbx::PDB;
+#[allow(clippy::all)]
 use std::collections::HashMap;
 
 macro_rules! hashmap {
@@ -12,18 +8,6 @@ macro_rules! hashmap {
          map
     }}
 }
-
-const EPSILON: f64 = 4.0;
-const FACTOR: f64 = 332.0;
-const MAX_ES_CUTOFF: f64 = 1.0;
-const MIN_ES_CUTOFF: f64 = -1.0;
-const VDW_CUTOFF: f64 = 1.0;
-const ELEC_DIST_CUTOFF: f64 = 30.0;
-const ELEC_DIST_CUTOFF2: f64 = ELEC_DIST_CUTOFF * ELEC_DIST_CUTOFF;
-const VDW_DIST_CUTOFF: f64 = 10.0;
-const VDW_DIST_CUTOFF2: f64 = VDW_DIST_CUTOFF * VDW_DIST_CUTOFF;
-const ELEC_MAX_CUTOFF: f64 = MAX_ES_CUTOFF * EPSILON / FACTOR;
-const ELEC_MIN_CUTOFF: f64 = MIN_ES_CUTOFF * EPSILON / FACTOR;
 
 pub fn atoms_in_residues(residue_name: &str) -> &'static [&'static str] {
     match residue_name {
@@ -57,13 +41,13 @@ pub fn atoms_in_residues(residue_name: &str) -> &'static [&'static str] {
         ],
         "MMB" => &["BJ"],
         _ => {
-            panic!("Residue name not supported in DNA scoring function")
+            panic!("Residue name not supported in PYDOCK scoring function")
         }
     }
 }
 
 lazy_static! {
-    static ref VDW_CHARGES: HashMap<&'static str, f64> = hashmap![
+    pub static ref VDW_CHARGES: HashMap<&'static str, f64> = hashmap![
         "IP" => 0.00277, "HS" => 0.0157, "HP" => 0.0157, "Na" => 0.00277, "N*" => 0.17, "Li" => 0.0183, "HO" => 0.0,
         "Rb" => 0.00017, "HC" => 0.0157, "HA" => 0.015, "O3" => 0.21, "CQ" => 0.086, "C*" => 0.086, "NA" => 0.17,
         "NB" => 0.17, "NC" => 0.17, "O2" => 0.21, "I" => 0.4, "Br" => 0.32, "H" => 0.0157, "HW" => 0.0, "C0" => 0.459789,
@@ -72,7 +56,7 @@ lazy_static! {
         "P" => 0.2, "S" => 0.25, "CR" => 0.086, "N2" => 0.17, "N3" => 0.17, "CW" => 0.086, "CV" => 0.086, "CT" => 0.1094,
         "MG" => 0.8947, "OH" => 0.2104, "H2" => 0.0157, "H3" => 0.0157, "H1" => 0.0157, "H4" => 0.015, "H5" => 0.015,
         "SH" => 0.25, "OW" => 0.152, "OS" => 0.17];
-    static ref VDW_RADII: HashMap<&'static str, f64> = hashmap![
+    pub static ref VDW_RADII: HashMap<&'static str, f64> = hashmap![
         "IP" => 1.868, "HS" => 0.6, "HP" => 1.1, "Na" => 1.868, "N*" => 1.824, "Li" => 1.137, "HO" => 0.0001,
         "Rb" => 2.956, "HC" => 1.487, "HA" => 1.459, "O3" => 1.6612, "CQ" => 1.908, "C*" => 1.908,
         "NA" => 1.824, "NB" => 1.824, "NC" => 1.824, "O2" => 1.6612, "I" => 2.35, "Br" => 2.22,
@@ -81,9 +65,9 @@ lazy_static! {
         "Zn" => 1.1, "O" => 1.6612, "N" => 1.824, "P" => 2.1, "S" => 2.0, "CR" => 1.908, "N2" => 1.824,
         "N3" => 1.875, "CW" => 1.908, "CV" => 1.908, "CT" => 1.908, "MG" => 0.7926, "OH" => 1.721, "H2" => 1.287,
         "H3" => 1.187, "H1" => 1.387, "H4" => 1.409, "H5" => 1.359, "SH" => 2.0, "OW" => 1.7683, "OS" => 1.6837];
-    static ref RES_TO_TRANSLATE: HashMap<&'static str, &'static str> = hashmap![
+    pub static ref RES_TO_TRANSLATE: HashMap<&'static str, &'static str> = hashmap![
         "HIS" => "HID", "THY" => "DT", "ADE" => "DA", "CYT" => "DC", "GUA" => "DG"];
-    static ref AMBER_TYPES: HashMap<&'static str, &'static str> = hashmap![
+    pub static ref AMBER_TYPES: HashMap<&'static str, &'static str> = hashmap![
         "ALA-C" => "C", "ALA-CA" => "CT", "ALA-CB" => "CT", "ALA-H" => "H", "ALA-HA" => "H1", "ALA-HB1" => "HC", "ALA-HB2" => "HC", "ALA-HB3" => "HC", "ALA-N" => "N", "ALA-O" => "O",
         "ARG-C" => "C", "ARG-CA" => "CT", "ARG-CB" => "CT", "ARG-CD" => "CT", "ARG-CG" => "CT", "ARG-CZ" => "CA", "ARG-H" => "H", "ARG-HA" => "H1", "ARG-HB2" => "HC", "ARG-HB3" => "HC", "ARG-HD2" => "H1", "ARG-HD3" => "H1", "ARG-HE" => "H", "ARG-HG2" => "HC", "ARG-HG3" => "HC", "ARG-HH11" => "H", "ARG-HH12" => "H", "ARG-HH21" => "H", "ARG-HH22" => "H", "ARG-N" => "N", "ARG-NE" => "N2", "ARG-NH1" => "N2", "ARG-NH2" => "N2", "ARG-O" => "O",
         "ASH-C" => "C", "ASH-CA" => "CT", "ASH-CB" => "CT", "ASH-CG" => "C", "ASH-H" => "H", "ASH-HA" => "H1", "ASH-HB2" => "HC", "ASH-HB3" => "HC", "ASH-HD2" => "HO", "ASH-N" => "N", "ASH-O" => "O", "ASH-OD1" => "O", "ASH-OD2" => "OH",
@@ -143,8 +127,9 @@ lazy_static! {
         "THR-C" => "C", "THR-CA" => "CT", "THR-CB" => "CT", "THR-CG2" => "CT", "THR-H" => "H", "THR-HA" => "H1", "THR-HB" => "H1", "THR-HG1" => "HO", "THR-HG21" => "HC", "THR-HG22" => "HC", "THR-HG23" => "HC", "THR-N" => "N", "THR-O" => "O", "THR-OG1" => "OH",
         "TRP-C" => "C", "TRP-CA" => "CT", "TRP-CB" => "CT", "TRP-CD1" => "CW", "TRP-CD2" => "CB", "TRP-CE2" => "CN", "TRP-CE3" => "CA", "TRP-CG" => "C*", "TRP-CH2" => "CA", "TRP-CZ2" => "CA", "TRP-CZ3" => "CA", "TRP-H" => "H", "TRP-HA" => "H1", "TRP-HB2" => "HC", "TRP-HB3" => "HC", "TRP-HD1" => "H4", "TRP-HE1" => "H", "TRP-HE3" => "HA", "TRP-HH2" => "HA", "TRP-HZ2" => "HA", "TRP-HZ3" => "HA", "TRP-N" => "N", "TRP-NE1" => "NA", "TRP-O" => "O",
         "TYR-C" => "C", "TYR-CA" => "CT", "TYR-CB" => "CT", "TYR-CD1" => "CA", "TYR-CD2" => "CA", "TYR-CE1" => "CA", "TYR-CE2" => "CA", "TYR-CG" => "CA", "TYR-CZ" => "C", "TYR-H" => "H", "TYR-HA" => "H1", "TYR-HB2" => "HC", "TYR-HB3" => "HC", "TYR-HD1" => "HA", "TYR-HD2" => "HA", "TYR-HE1" => "HA", "TYR-HE2" => "HA", "TYR-HH" => "HO", "TYR-N" => "N", "TYR-O" => "O", "TYR-OH" => "OH",
-        "VAL-C" => "C", "VAL-CA" => "CT", "VAL-CB" => "CT", "VAL-CG1" => "CT", "VAL-CG2" => "CT", "VAL-H" => "H", "VAL-HA" => "H1", "VAL-HB" => "HC", "VAL-HG11" => "HC", "VAL-HG12" => "HC", "VAL-HG13" => "HC", "VAL-HG21" => "HC", "VAL-HG22" => "HC", "VAL-HG23" => "HC", "VAL-N" => "N", "VAL-O" => "O"];
-    static ref ELE_CHARGES: HashMap<&'static str, f64> = hashmap![
+        "VAL-C" => "C", "VAL-CA" => "CT", "VAL-CB" => "CT", "VAL-CG1" => "CT", "VAL-CG2" => "CT", "VAL-H" => "H", "VAL-HA" => "H1", "VAL-HB" => "HC", "VAL-HG11" => "HC", "VAL-HG12" => "HC", "VAL-HG13" => "HC", "VAL-HG21" => "HC", "VAL-HG22" => "HC", "VAL-HG23" => "HC", "VAL-N" => "N", "VAL-O" => "O",
+        "*-C" => "C", "*-H" => "H", "*-N" => "N", "*-O" => "O", "*-S" => "S", "*-F" => "F"];
+    pub static ref ELE_CHARGES: HashMap<&'static str, f64> = hashmap![
         "ALA-C" => 0.5973, "ALA-CA" => 0.0337, "ALA-CB" => -0.1825, "ALA-H" => 0.2719, "ALA-HA" => 0.0823, "ALA-HB1" => 0.0603, "ALA-HB2" => 0.0603, "ALA-HB3" => 0.0603, "ALA-N" => -0.4157, "ALA-O" => -0.5679,
         "ARG-C" => 0.7341, "ARG-CA" => -0.2637, "ARG-CB" => -0.0007, "ARG-CD" => 0.0486, "ARG-CG" => 0.039, "ARG-CZ" => 0.8076, "ARG-H" => 0.2747, "ARG-HA" => 0.156, "ARG-HB2" => 0.0327, "ARG-HB3" => 0.0327, "ARG-HD2" => 0.0687, "ARG-HD3" => 0.0687, "ARG-HE" => 0.3456, "ARG-HG2" => 0.0285, "ARG-HG3" => 0.0285, "ARG-HH11" => 0.4478, "ARG-HH12" => 0.4478, "ARG-HH21" => 0.4478, "ARG-HH22" => 0.4478, "ARG-N" => -0.3479, "ARG-NE" => -0.5295, "ARG-NH1" => -0.8627, "ARG-NH2" => -0.8627, "ARG-O" => -0.5894,
         "ASH-C" => 0.5973, "ASH-CA" => 0.0341, "ASH-CB" => -0.0316, "ASH-CG" => 0.6462, "ASH-H" => 0.2719, "ASH-HA" => 0.0864, "ASH-HB2" => 0.0488, "ASH-HB3" => 0.0488, "ASH-HD2" => 0.4747, "ASH-N" => -0.4157, "ASH-O" => -0.5679, "ASH-OD1" => -0.5554, "ASH-OD2" => -0.6376,
@@ -204,8 +189,9 @@ lazy_static! {
         "THR-C" => 0.5973, "THR-CA" => -0.0389, "THR-CB" => 0.3654, "THR-CG2" => -0.2438, "THR-H" => 0.2719, "THR-HA" => 0.1007, "THR-HB" => 0.0043, "THR-HG1" => 0.4102, "THR-HG21" => 0.0642, "THR-HG22" => 0.0642, "THR-HG23" => 0.0642, "THR-N" => -0.4157, "THR-O" => -0.5679, "THR-OG1" => -0.6761,
         "TRP-C" => 0.5973, "TRP-CA" => -0.0275, "TRP-CB" => -0.005, "TRP-CD1" => -0.1638, "TRP-CD2" => 0.1243, "TRP-CE2" => 0.138, "TRP-CE3" => -0.2387, "TRP-CG" => -0.1415, "TRP-CH2" => -0.1134, "TRP-CZ2" => -0.2601, "TRP-CZ3" => -0.1972, "TRP-H" => 0.2719, "TRP-HA" => 0.1123, "TRP-HB2" => 0.0339, "TRP-HB3" => 0.0339, "TRP-HD1" => 0.2062, "TRP-HE1" => 0.3412, "TRP-HE3" => 0.17, "TRP-HH2" => 0.1417, "TRP-HZ2" => 0.1572, "TRP-HZ3" => 0.1447, "TRP-N" => -0.4157, "TRP-NE1" => -0.3418, "TRP-O" => -0.5679,
         "TYR-C" => 0.5973, "TYR-CA" => -0.0014, "TYR-CB" => -0.0152, "TYR-CD1" => -0.1906, "TYR-CD2" => -0.1906, "TYR-CE1" => -0.2341, "TYR-CE2" => -0.2341, "TYR-CG" => -0.0011, "TYR-CZ" => 0.3226, "TYR-H" => 0.2719, "TYR-HA" => 0.0876, "TYR-HB2" => 0.0295, "TYR-HB3" => 0.0295, "TYR-HD1" => 0.1699, "TYR-HD2" => 0.1699, "TYR-HE1" => 0.1656, "TYR-HE2" => 0.1656, "TYR-HH" => 0.3992, "TYR-N" => -0.4157, "TYR-O" => -0.5679, "TYR-OH" => -0.5579,
-        "VAL-C" => 0.5973, "VAL-CA" => -0.0875, "VAL-CB" => 0.2985, "VAL-CG1" => -0.3192, "VAL-CG2" => -0.3192, "VAL-H" => 0.2719, "VAL-HA" => 0.0969, "VAL-HB" => -0.0297, "VAL-HG11" => 0.0791, "VAL-HG12" => 0.0791, "VAL-HG13" => 0.0791, "VAL-HG21" => 0.0791, "VAL-HG22" => 0.0791, "VAL-HG23" => 0.0791, "VAL-N" => -0.4157, "VAL-O" => -0.5679];
-    static ref NT_ELE_CHARGES: HashMap<&'static str, f64> = hashmap![
+        "VAL-C" => 0.5973, "VAL-CA" => -0.0875, "VAL-CB" => 0.2985, "VAL-CG1" => -0.3192, "VAL-CG2" => -0.3192, "VAL-H" => 0.2719, "VAL-HA" => 0.0969, "VAL-HB" => -0.0297, "VAL-HG11" => 0.0791, "VAL-HG12" => 0.0791, "VAL-HG13" => 0.0791, "VAL-HG21" => 0.0791, "VAL-HG22" => 0.0791, "VAL-HG23" => 0.0791, "VAL-N" => -0.4157, "VAL-O" => -0.5679,
+        "*-C" => 0.5973, "*-H" => 0.2719, "*-N" => -0.4157, "*-O" => -0.5679, "*-S" => -0.2737, "*-F" => -0.342];
+    pub static ref NT_ELE_CHARGES: HashMap<&'static str, f64> = hashmap![
         "ACE-C" => 0.5972, "ACE-CH3" => -0.3662, "ACE-HH31" => 0.1123, "ACE-HH32" => 0.1123, "ACE-HH33" => 0.1123, "ACE-O" => -0.5679,
         "ALA-C" => 0.6163, "ALA-CA" => 0.0962, "ALA-CB" => -0.0597, "ALA-H1" => 0.1997, "ALA-H2" => 0.1997, "ALA-H3" => 0.1997, "ALA-HA" => 0.0889, "ALA-HB1" => 0.03, "ALA-HB2" => 0.03, "ALA-HB3" => 0.03, "ALA-N" => 0.1414, "ALA-O" => -0.5722,
         "ARG-C" => 0.7214, "ARG-CA" => -0.0223, "ARG-CB" => 0.0118, "ARG-CD" => 0.0935, "ARG-CG" => 0.0236, "ARG-CZ" => 0.8281, "ARG-H1" => 0.2083, "ARG-H2" => 0.2083, "ARG-H3" => 0.2083, "ARG-HA" => 0.1242, "ARG-HB2" => 0.0226, "ARG-HB3" => 0.0226, "ARG-HD2" => 0.0527, "ARG-HD3" => 0.0527, "ARG-HE" => 0.3592, "ARG-HG2" => 0.0309, "ARG-HG3" => 0.0309, "ARG-HH11" => 0.4494, "ARG-HH12" => 0.4494, "ARG-HH21" => 0.4494, "ARG-HH22" => 0.4494, "ARG-N" => 0.1305, "ARG-NE" => -0.565, "ARG-NH1" => -0.8693, "ARG-NH2" => -0.8693, "ARG-O" => -0.6013,
@@ -231,345 +217,4 @@ lazy_static! {
         "TRP-C" => 0.6123, "TRP-CA" => 0.0421, "TRP-CB" => 0.0543, "TRP-CD1" => -0.1788, "TRP-CD2" => 0.1132, "TRP-CE2" => 0.1575, "TRP-CE3" => -0.2265, "TRP-CG" => -0.1654, "TRP-CH2" => -0.108, "TRP-CZ2" => -0.271, "TRP-CZ3" => -0.2034, "TRP-H1" => 0.1888, "TRP-H2" => 0.1888, "TRP-H3" => 0.1888, "TRP-HA" => 0.1162, "TRP-HB2" => 0.0222, "TRP-HB3" => 0.0222, "TRP-HD1" => 0.2195, "TRP-HE1" => 0.3412, "TRP-HE3" => 0.1646, "TRP-HH2" => 0.1411, "TRP-HZ2" => 0.1589, "TRP-HZ3" => 0.1458, "TRP-N" => 0.1913, "TRP-NE1" => -0.3444, "TRP-O" => -0.5713,
         "TYR-C" => 0.6123, "TYR-CA" => 0.057, "TYR-CB" => 0.0659, "TYR-CD1" => -0.2002, "TYR-CD2" => -0.2002, "TYR-CE1" => -0.2239, "TYR-CE2" => -0.2239, "TYR-CG" => -0.0205, "TYR-CZ" => 0.3139, "TYR-H1" => 0.1873, "TYR-H2" => 0.1873, "TYR-H3" => 0.1873, "TYR-HA" => 0.0983, "TYR-HB2" => 0.0102, "TYR-HB3" => 0.0102, "TYR-HD1" => 0.172, "TYR-HD2" => 0.172, "TYR-HE1" => 0.165, "TYR-HE2" => 0.165, "TYR-HH" => 0.4001, "TYR-N" => 0.194, "TYR-O" => -0.5713, "TYR-OH" => -0.5578,
         "VAL-C" => 0.6163, "VAL-CA" => -0.0054, "VAL-CB" => 0.3196, "VAL-CG1" => -0.3129, "VAL-CG2" => -0.3129, "VAL-H1" => 0.2272, "VAL-H2" => 0.2272, "VAL-H3" => 0.2272, "VAL-HA" => 0.1093, "VAL-HB" => -0.0221, "VAL-HG11" => 0.0735, "VAL-HG12" => 0.0735, "VAL-HG13" => 0.0735, "VAL-HG21" => 0.0735, "VAL-HG22" => 0.0735, "VAL-HG23" => 0.0735, "VAL-N" => 0.0577, "VAL-O" => -0.5722];
-}
-
-pub struct DNADockingModel {
-    pub atoms: Vec<usize>,
-    pub coordinates: Vec<[f64; 3]>,
-    pub membrane: Vec<usize>,
-    pub active_restraints: HashMap<String, Vec<usize>>,
-    pub passive_restraints: HashMap<String, Vec<usize>>,
-    pub num_anm: usize,
-    pub nmodes: Vec<f64>,
-    pub vdw_radii: Vec<f64>,
-    pub vdw_charges: Vec<f64>,
-    pub sqrt_vdw_charges: Vec<f64>,
-    pub ele_charges: Vec<f64>,
-}
-
-impl<'a> DNADockingModel {
-    fn new(
-        structure: &'a PDB,
-        active_restraints: &'a [String],
-        passive_restraints: &'a [String],
-        nmodes: &[f64],
-        num_anm: usize,
-    ) -> DNADockingModel {
-        let mut model = DNADockingModel {
-            atoms: Vec::new(),
-            coordinates: Vec::new(),
-            membrane: Vec::new(),
-            active_restraints: HashMap::new(),
-            passive_restraints: HashMap::new(),
-            nmodes: nmodes.to_owned(),
-            num_anm,
-            vdw_radii: Vec::new(),
-            vdw_charges: Vec::new(),
-            sqrt_vdw_charges: Vec::new(),
-            ele_charges: Vec::new(),
-        };
-
-        let mut atom_index: u64 = 0;
-        for chain in structure.chains() {
-            for residue in chain.residues() {
-                let res_name = match residue.name() {
-                    Some(name) => name,
-                    None => panic!("PDB Parsing Error: Residue name error"),
-                };
-                let mut res_id = format!("{}.{}.{}", chain.id(), res_name, residue.serial_number());
-                if let Some(c) = residue.insertion_code() {
-                    res_id.push_str(c);
-                }
-
-                for atom in residue.atoms() {
-                    // Membrane beads MMB.BJ
-                    let rec_atom_type = format!("{}{}", res_name, atom.name());
-                    if rec_atom_type == "MMBBJ" {
-                        model.membrane.push(atom_index as usize);
-                    }
-
-                    if active_restraints.contains(&res_id) {
-                        match model.active_restraints.get_mut(&res_id) {
-                            Some(atom_indexes) => {
-                                atom_indexes.push(atom_index as usize);
-                            }
-                            None => {
-                                model
-                                    .active_restraints
-                                    .insert(res_id.to_string(), vec![atom_index as usize]);
-                            }
-                        }
-                    }
-
-                    if passive_restraints.contains(&res_id) {
-                        match model.passive_restraints.get_mut(&res_id) {
-                            Some(atom_indexes) => {
-                                atom_indexes.push(atom_index as usize);
-                            }
-                            None => {
-                                model
-                                    .passive_restraints
-                                    .insert(res_id.to_string(), vec![atom_index as usize]);
-                            }
-                        }
-                    }
-
-                    let atom_name = atom.name().trim();
-                    let mut atom_id = format!("{}-{}", res_name, atom_name);
-
-                    // Calculate AMBER type
-                    let amber_type = match AMBER_TYPES.get(&*atom_id) {
-                        Some(&amber) => amber,
-                        _ => {
-                            if atom_name == "H1" || atom_name == "H2" || atom_name == "H3" {
-                                atom_id = format!("{}-H", res_name);
-                                match AMBER_TYPES.get(&*atom_id) {
-                                    Some(&amber) => amber,
-                                    _ => panic!("DNA Error: Atom [{:?}] not supported", atom_id),
-                                }
-                            } else {
-                                panic!("DNA Error: Atom [{:?}] not supported", atom_id);
-                            }
-                        }
-                    };
-
-                    // Assign electrostatics charge
-                    let ele_charge = match ELE_CHARGES.get(&*atom_id) {
-                        Some(&charge) => charge,
-                        _ => match NT_ELE_CHARGES.get(&*atom_id) {
-                            Some(&charge) => charge,
-                            _ => panic!(
-                                "DNA Error: Atom [{:?}] electrostatics charge not found",
-                                atom_id
-                            ),
-                        },
-                    };
-                    model.ele_charges.push(ele_charge);
-
-                    // Assign VDW charge and radius
-                    let vdw_charge = match VDW_CHARGES.get(amber_type) {
-                        Some(&charge) => charge,
-                        _ => panic!("DNA Error: Atom [{:?}] VDW charge not found", atom_id),
-                    };
-                    model.vdw_charges.push(vdw_charge);
-                    model.sqrt_vdw_charges.push(vdw_charge.sqrt());
-                    let vdw_radius = match VDW_RADII.get(amber_type) {
-                        Some(&radius) => radius,
-                        _ => panic!("DNA Error: Atom [{:?}] VDW radius not found", atom_id),
-                    };
-                    model.vdw_radii.push(vdw_radius);
-
-                    model.coordinates.push([atom.x(), atom.y(), atom.z()]);
-                    atom_index += 1;
-                }
-            }
-        }
-        model
-    }
-}
-
-pub struct DNA {
-    pub potential: Vec<f64>,
-    pub receptor: DNADockingModel,
-    pub ligand: DNADockingModel,
-    pub use_anm: bool,
-}
-
-impl<'a> DNA {
-    pub fn new(
-        receptor: PDB,
-        rec_active_restraints: Vec<String>,
-        rec_passive_restraints: Vec<String>,
-        rec_nmodes: Vec<f64>,
-        rec_num_anm: usize,
-        ligand: PDB,
-        lig_active_restraints: Vec<String>,
-        lig_passive_restraints: Vec<String>,
-        lig_nmodes: Vec<f64>,
-        lig_num_anm: usize,
-        use_anm: bool,
-    ) -> Box<dyn Score + 'a> {
-        let d = DNA {
-            potential: Vec::with_capacity(168 * 168 * 20),
-            receptor: DNADockingModel::new(
-                &receptor,
-                &rec_active_restraints,
-                &rec_passive_restraints,
-                &rec_nmodes,
-                rec_num_anm,
-            ),
-            ligand: DNADockingModel::new(
-                &ligand,
-                &lig_active_restraints,
-                &lig_passive_restraints,
-                &lig_nmodes,
-                lig_num_anm,
-            ),
-            use_anm,
-        };
-        Box::new(d)
-    }
-}
-
-impl Score for DNA {
-    fn energy(
-        &self,
-        translation: &[f64],
-        rotation: &Quaternion,
-        rec_nmodes: &[f64],
-        lig_nmodes: &[f64],
-    ) -> f64 {
-        thread_local! {
-            static SCRATCH: RefCell<(Vec<[f64;3]>, Vec<[f64;3]>, Vec<usize>, Vec<usize>)> =
-                RefCell::new((Vec::new(), Vec::new(), Vec::new(), Vec::new()));
-        }
-        let rot_mat = rotation.to_matrix();
-
-        SCRATCH.with(|sc| {
-        let mut sc = sc.borrow_mut();
-        let (rec_c, lig_c, iface_r, iface_l) = &mut *sc;
-        let rec_num_atoms = self.receptor.coordinates.len();
-        let lig_num_atoms = self.ligand.coordinates.len();
-        if rec_c.len() != rec_num_atoms { rec_c.resize(rec_num_atoms, [0.0;3]); }
-        if lig_c.len() != lig_num_atoms { lig_c.resize(lig_num_atoms, [0.0;3]); }
-        if iface_r.len() != rec_num_atoms { iface_r.resize(rec_num_atoms, 0); }
-        if iface_l.len() != lig_num_atoms { iface_l.resize(lig_num_atoms, 0); }
-        rec_c.copy_from_slice(&self.receptor.coordinates);
-        lig_c.copy_from_slice(&self.ligand.coordinates);
-        for v in iface_r.iter_mut() { *v = 0; }
-        for v in iface_l.iter_mut() { *v = 0; }
-
-        let lig_nm_n = if self.ligand.num_anm > 0 {
-            self.ligand.nmodes.len() / (3 * self.ligand.num_anm)
-        } else { lig_num_atoms };
-        let rec_nm_n = if self.receptor.num_anm > 0 {
-            self.receptor.nmodes.len() / (3 * self.receptor.num_anm)
-        } else { rec_num_atoms };
-
-        for (i_atom, coordinate) in lig_c.iter_mut().enumerate() {
-            let r = rot3_apply(&rot_mat, *coordinate);
-            coordinate[0] = r[0] + translation[0];
-            coordinate[1] = r[1] + translation[1];
-            coordinate[2] = r[2] + translation[2];
-            if self.use_anm && self.ligand.num_anm > 0 && i_atom < lig_nm_n {
-                for i_nm in 0..self.ligand.num_anm {
-                    let b = i_nm * lig_nm_n * 3 + i_atom * 3;
-                    coordinate[0] += self.ligand.nmodes[b]   * lig_nmodes[i_nm];
-                    coordinate[1] += self.ligand.nmodes[b+1] * lig_nmodes[i_nm];
-                    coordinate[2] += self.ligand.nmodes[b+2] * lig_nmodes[i_nm];
-                }
-            }
-        }
-        if self.use_anm && self.receptor.num_anm > 0 {
-            for (i_atom, coordinate) in rec_c.iter_mut().enumerate() {
-                if i_atom >= rec_nm_n { break; }
-                for i_nm in 0..self.receptor.num_anm {
-                    let b = i_nm * rec_nm_n * 3 + i_atom * 3;
-                    coordinate[0] += self.receptor.nmodes[b]   * rec_nmodes[i_nm];
-                    coordinate[1] += self.receptor.nmodes[b+1] * rec_nmodes[i_nm];
-                    coordinate[2] += self.receptor.nmodes[b+2] * rec_nmodes[i_nm];
-                }
-            }
-        }
-
-        // ── Phase 1: parallel pairwise energy ──────────────────────────────
-        let rec_ele  = &self.receptor.ele_charges;
-        let lig_ele  = &self.ligand.ele_charges;
-        let rec_svdw = &self.receptor.sqrt_vdw_charges;
-        let lig_svdw = &self.ligand.sqrt_vdw_charges;
-        let rec_vdwr = &self.receptor.vdw_radii;
-        let lig_vdwr = &self.ligand.vdw_radii;
-        let lig_slice: &[[f64; 3]] = lig_c.as_slice();
-
-        let (total_elec_raw, total_vdw) = rec_c.iter().enumerate()
-            .map(|(i, ra)| {
-                let rx = ra[0]; let ry = ra[1]; let rz = ra[2];
-                let mut ei = 0.0f64;
-                let mut vi = 0.0f64;
-                for (j, la) in lig_slice.iter().enumerate() {
-                    let dx = rx - la[0];
-                    let dy = ry - la[1];
-                    let dz = rz - la[2];
-                    let d2 = dx*dx + dy*dy + dz*dz;
-                    if d2 <= ELEC_DIST_CUTOFF2 {
-                        let ae = (rec_ele[i] * lig_ele[j] / d2)
-                            .clamp(ELEC_MIN_CUTOFF, ELEC_MAX_CUTOFF);
-                        ei += ae;
-                    }
-                    if d2 <= VDW_DIST_CUTOFF2 {
-                        let vdw_e = rec_svdw[i] * lig_svdw[j];
-                        let vdw_r = rec_vdwr[i] + lig_vdwr[j];
-                        let p6 = vdw_r.powi(6) / d2.powi(3);
-                        vi += (vdw_e * (p6*p6 - 2.0*p6)).min(VDW_CUTOFF);
-                    }
-                }
-                (ei, vi)
-            })
-            .fold((0.0, 0.0), |(e1, v1), (e2, v2)| (e1+e2, v1+v2));
-
-        let total_elec = total_elec_raw * FACTOR / EPSILON;
-        let score = -(total_elec + total_vdw);
-
-        // ── Phase 2: interface flags (fast, small cutoff) ────────────────
-        for (i, ra) in rec_c.iter().enumerate() {
-            for (j, la) in lig_slice.iter().enumerate() {
-                let dx = ra[0]-la[0]; let dy = ra[1]-la[1]; let dz = ra[2]-la[2];
-                if dx*dx + dy*dy + dz*dz <= INTERFACE_CUTOFF2 {
-                    iface_r[i] = 1;
-                    iface_l[j] = 1;
-                }
-            }
-        }
-
-        let perc_r = satisfied_restraints(iface_r, &self.receptor.active_restraints);
-        let perc_l = satisfied_restraints(iface_l, &self.ligand.active_restraints);
-        let intersection = membrane_intersection(iface_r, &self.receptor.membrane);
-        let penalty = if intersection > 0.0 { MEMBRANE_PENALTY_SCORE * intersection } else { 0.0 };
-        score + perc_r * score + perc_l * score - penalty
-        })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::qt::Quaternion;
-    use std::env;
-
-    #[test]
-    fn test_1azp() {
-        let cargo_path = match env::var("CARGO_MANIFEST_DIR") {
-            Ok(val) => val,
-            Err(_) => String::from("."),
-        };
-        let test_path: String = format!("{}/tests/1azp", cargo_path);
-
-        let receptor_filename: String = format!("{}/1azp_receptor.pdb", test_path);
-        let (receptor, _errors) =
-            pdbtbx::open(&receptor_filename, pdbtbx::StrictnessLevel::Strict).unwrap();
-
-        let ligand_filename: String = format!("{}/1azp_ligand.pdb", test_path);
-        let (ligand, _errors) =
-            pdbtbx::open(&ligand_filename, pdbtbx::StrictnessLevel::Strict).unwrap();
-
-        let scoring = DNA::new(
-            receptor,
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            0,
-            ligand,
-            Vec::new(),
-            Vec::new(),
-            Vec::new(),
-            0,
-            false,
-        );
-
-        let translation = vec![0., 0., 0.];
-        let rotation = Quaternion::default();
-        let energy = scoring.energy(&translation, &rotation, &Vec::new(), &Vec::new());
-        assert!((energy - (-364.88126358158974)).abs() < 1e-8,
-            "energy={energy} expected≈-364.88126358158974");
-    }
 }

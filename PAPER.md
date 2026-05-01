@@ -2,7 +2,7 @@
 
 **LKlight：基于 Rust 语言的 LightDock 萤火虫群优化对接引擎高性能再实现**
 
-> **Version:** 1.0.0 | **Base:** LightDock 3.x (Python + lightdock-rust) | **Repository:** https://github.com/LK-Studio1128/LKlight | **License:** GPL-3.0-or-later
+> **Version:** 1.0.0 | **Base:** LightDock 0.9.4 (Python + lightdock-rust) | **Repository:** https://github.com/LK-Studio1128/LKlight | **License:** GPL-3.0-or-later
 > **Binary:** `LKlight` | **Key features:** 12 scoring-function families / 13 CLI method names · ANM support · rayon parallel outer loop · SIMD-friendly hot paths · thread-local scratch reuse · BufWriter I/O · macOS arm64 / Linux x86-64 / Windows x86-64
 
 ---

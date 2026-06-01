@@ -2,8 +2,28 @@
 
 **LKlight：基于 Rust 语言的 LightDock 萤火虫群优化对接引擎高性能再实现**
 
-> **Version:** 1.0.0 | **Base:** LightDock 0.9.4 (Python + lightdock-rust) | **Repository:** https://github.com/LK-Studio1128/LKlight | **License:** GPL-3.0-or-later
-> **Binary:** `LKlight` | **Key features:** 12 scoring-function families / 13 CLI method names · ANM support · rayon parallel outer loop · SIMD-friendly hot paths · thread-local scratch reuse · BufWriter I/O · macOS arm64 / Linux x86-64 / Windows x86-64
+---
+
+## 项目信息 / Project Information
+
+| 项目 | 内容 |
+|------|------|
+| 版本 (Version) | 1.0.0 |
+| 上游基线 (Base) | LightDock 0.9.4（Python）+ lightdock-rust（Rust 基线） |
+| 二进制 (Binary) | `LKlight` |
+| 仓库 (Repository) | https://github.com/LK-Studio1128/LKlight |
+| Release v1.0.0 | https://github.com/LK-Studio1128/LKlight/releases/tag/v1.0.0 |
+| 许可证 (License) | GPL-3.0-or-later |
+| 平台 (Platforms) | macOS arm64 · Linux x86-64 · Windows x86-64 |
+| 开发者 | LK-Studio1128 |
+
+## 核心亮点 / Highlights
+
+- **12 类评分函数 / 13 个 CLI 方法名** 全量 Rust 移植；`fastdfire` 为 `dfire` 兼容别名
+- **修复 4 个上游 Rust 基线 Bug**：DFIRE 参数缺失崩溃、ANM stride 错误、未知残基 panic、atom_count 断言
+- **rayon 并行受体原子外循环** + **SIMD 友好热路径** + **thread-local scratch buffer 复用** + **BufWriter I/O 批写**
+- **基准测试**：相对 Python LightDock **3.0–25.5×** 加速；相对 lightdock-rust **26.5–307×** 加速
+- **跨平台单二进制发行**，预编译 macOS / Linux / Windows 版本作为 Release assets 分发
 
 ---
 
@@ -371,8 +391,8 @@ LKlight 的优化策略分为两层：源码层面将热路径改写为连续数
 
 **回退根本原因：** 10Å/±3格方案中，每个受体原子需执行 7³ = **343 次 HashMap 查询**（多数返回空）。对 1PPE 配体（221 原子，~14 个非空格点），实际有效查询比例约 14/343 = **4%**。
 
-$$\text{每受体原子开销}_{\text{grid}} = 343 \times t_{\text{HashMap}} \approx 343 \times 50\text{ns} = 17\mu\text{s}$$
-$$\text{每受体原子开销}_{\text{O(N²)}} = 221 \times t_{\text{array}} \approx 221 \times 2\text{ns} = 0.44\mu\text{s}$$
+> **每受体原子开销**（grid 方案）= 343 × *t*₊ₜₛₕₘₐₚ ≈ 343 × 50 ns = **17 μs**  
+> **每受体原子开销**（O(N²) 方案）= 221 × *t*ₐᵣᵣₐᵧ ≈ 221 × 2 ns = **0.44 μs**
 
 网格方案 HashMap 查询开销（~17μs）比直接数组遍历（~0.44μs）高约 **38×**。
 
@@ -388,8 +408,8 @@ $$\text{每受体原子开销}_{\text{O(N²)}} = 221 \times t_{\text{array}} \ap
 
 **H2：SIMD 友好热路径 + 可选 native benchmark 构建。** LKlight 的核心改动不是依赖不可移植的默认编译参数，而是把热路径改成适合 LLVM 自动向量化的形式：连续坐标数组、简单距离平方计算、较少临时分配和较少虚调用。公开发布二进制使用便携 CPU baseline；本机 benchmark 可使用 `target-cpu=native` 观察硬件上限。
 
-$$\text{总加速} \approx N_{\text{cores}} \times W_{\text{SIMD}} = 8 \times 4 = 32\times \quad\text{（理论峰值）}$$
-$$\text{实测（pydock）} = \frac{7693\text{ms}}{290\text{ms}} = 26.5\times \approx \text{理论值的 83\%}$$
+> **理论峰值**：*N*₌ₒᵣₑₛ × *W*ₛᵢₘₔ = 8 × 4 = **32×**  
+> **实测（pydock）**：7693 ms / 290 ms = **26.5×**，约为理论值的 **83 %**
 
 **I1/I2 — dfire/dfire2 H1 化（移除 HashMap 网格）：** 将 dfire 的 HashMap 空间网格（CELL=15Å，±1=27格）替换为 rayon 并行受体原子外循环，全量 O(N²) 内循环。效果：dfire **35× 提升**（935ms → 33ms），超越 Python 25.5×。dfire 原始 HashMap 网格的失效原因与 G3/G4 相同：15Å 网格覆盖整个受体，几乎不剪枝，但带来 27 次 HashMap 查询的固定开销。
 

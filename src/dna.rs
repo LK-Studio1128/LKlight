@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use super::scoring::{membrane_intersection, satisfied_restraints, Score};
 use pdbtbx::PDB;
 use std::collections::HashMap;
+use log::warn;
 
 macro_rules! hashmap {
     ($( $key: expr => $val: expr ),*) => {{
@@ -143,7 +144,8 @@ lazy_static! {
         "THR-C" => "C", "THR-CA" => "CT", "THR-CB" => "CT", "THR-CG2" => "CT", "THR-H" => "H", "THR-HA" => "H1", "THR-HB" => "H1", "THR-HG1" => "HO", "THR-HG21" => "HC", "THR-HG22" => "HC", "THR-HG23" => "HC", "THR-N" => "N", "THR-O" => "O", "THR-OG1" => "OH",
         "TRP-C" => "C", "TRP-CA" => "CT", "TRP-CB" => "CT", "TRP-CD1" => "CW", "TRP-CD2" => "CB", "TRP-CE2" => "CN", "TRP-CE3" => "CA", "TRP-CG" => "C*", "TRP-CH2" => "CA", "TRP-CZ2" => "CA", "TRP-CZ3" => "CA", "TRP-H" => "H", "TRP-HA" => "H1", "TRP-HB2" => "HC", "TRP-HB3" => "HC", "TRP-HD1" => "H4", "TRP-HE1" => "H", "TRP-HE3" => "HA", "TRP-HH2" => "HA", "TRP-HZ2" => "HA", "TRP-HZ3" => "HA", "TRP-N" => "N", "TRP-NE1" => "NA", "TRP-O" => "O",
         "TYR-C" => "C", "TYR-CA" => "CT", "TYR-CB" => "CT", "TYR-CD1" => "CA", "TYR-CD2" => "CA", "TYR-CE1" => "CA", "TYR-CE2" => "CA", "TYR-CG" => "CA", "TYR-CZ" => "C", "TYR-H" => "H", "TYR-HA" => "H1", "TYR-HB2" => "HC", "TYR-HB3" => "HC", "TYR-HD1" => "HA", "TYR-HD2" => "HA", "TYR-HE1" => "HA", "TYR-HE2" => "HA", "TYR-HH" => "HO", "TYR-N" => "N", "TYR-O" => "O", "TYR-OH" => "OH",
-        "VAL-C" => "C", "VAL-CA" => "CT", "VAL-CB" => "CT", "VAL-CG1" => "CT", "VAL-CG2" => "CT", "VAL-H" => "H", "VAL-HA" => "H1", "VAL-HB" => "HC", "VAL-HG11" => "HC", "VAL-HG12" => "HC", "VAL-HG13" => "HC", "VAL-HG21" => "HC", "VAL-HG22" => "HC", "VAL-HG23" => "HC", "VAL-N" => "N", "VAL-O" => "O"];
+        "VAL-C" => "C", "VAL-CA" => "CT", "VAL-CB" => "CT", "VAL-CG1" => "CT", "VAL-CG2" => "CT", "VAL-H" => "H", "VAL-HA" => "H1", "VAL-HB" => "HC", "VAL-HG11" => "HC", "VAL-HG12" => "HC", "VAL-HG13" => "HC", "VAL-HG21" => "HC", "VAL-HG22" => "HC", "VAL-HG23" => "HC", "VAL-N" => "N", "VAL-O" => "O",
+        "*-C" => "C", "*-H" => "H", "*-N" => "N", "*-O" => "O", "*-S" => "S", "*-F" => "F"];
     static ref ELE_CHARGES: HashMap<&'static str, f64> = hashmap![
         "ALA-C" => 0.5973, "ALA-CA" => 0.0337, "ALA-CB" => -0.1825, "ALA-H" => 0.2719, "ALA-HA" => 0.0823, "ALA-HB1" => 0.0603, "ALA-HB2" => 0.0603, "ALA-HB3" => 0.0603, "ALA-N" => -0.4157, "ALA-O" => -0.5679,
         "ARG-C" => 0.7341, "ARG-CA" => -0.2637, "ARG-CB" => -0.0007, "ARG-CD" => 0.0486, "ARG-CG" => 0.039, "ARG-CZ" => 0.8076, "ARG-H" => 0.2747, "ARG-HA" => 0.156, "ARG-HB2" => 0.0327, "ARG-HB3" => 0.0327, "ARG-HD2" => 0.0687, "ARG-HD3" => 0.0687, "ARG-HE" => 0.3456, "ARG-HG2" => 0.0285, "ARG-HG3" => 0.0285, "ARG-HH11" => 0.4478, "ARG-HH12" => 0.4478, "ARG-HH21" => 0.4478, "ARG-HH22" => 0.4478, "ARG-N" => -0.3479, "ARG-NE" => -0.5295, "ARG-NH1" => -0.8627, "ARG-NH2" => -0.8627, "ARG-O" => -0.5894,
@@ -204,7 +206,8 @@ lazy_static! {
         "THR-C" => 0.5973, "THR-CA" => -0.0389, "THR-CB" => 0.3654, "THR-CG2" => -0.2438, "THR-H" => 0.2719, "THR-HA" => 0.1007, "THR-HB" => 0.0043, "THR-HG1" => 0.4102, "THR-HG21" => 0.0642, "THR-HG22" => 0.0642, "THR-HG23" => 0.0642, "THR-N" => -0.4157, "THR-O" => -0.5679, "THR-OG1" => -0.6761,
         "TRP-C" => 0.5973, "TRP-CA" => -0.0275, "TRP-CB" => -0.005, "TRP-CD1" => -0.1638, "TRP-CD2" => 0.1243, "TRP-CE2" => 0.138, "TRP-CE3" => -0.2387, "TRP-CG" => -0.1415, "TRP-CH2" => -0.1134, "TRP-CZ2" => -0.2601, "TRP-CZ3" => -0.1972, "TRP-H" => 0.2719, "TRP-HA" => 0.1123, "TRP-HB2" => 0.0339, "TRP-HB3" => 0.0339, "TRP-HD1" => 0.2062, "TRP-HE1" => 0.3412, "TRP-HE3" => 0.17, "TRP-HH2" => 0.1417, "TRP-HZ2" => 0.1572, "TRP-HZ3" => 0.1447, "TRP-N" => -0.4157, "TRP-NE1" => -0.3418, "TRP-O" => -0.5679,
         "TYR-C" => 0.5973, "TYR-CA" => -0.0014, "TYR-CB" => -0.0152, "TYR-CD1" => -0.1906, "TYR-CD2" => -0.1906, "TYR-CE1" => -0.2341, "TYR-CE2" => -0.2341, "TYR-CG" => -0.0011, "TYR-CZ" => 0.3226, "TYR-H" => 0.2719, "TYR-HA" => 0.0876, "TYR-HB2" => 0.0295, "TYR-HB3" => 0.0295, "TYR-HD1" => 0.1699, "TYR-HD2" => 0.1699, "TYR-HE1" => 0.1656, "TYR-HE2" => 0.1656, "TYR-HH" => 0.3992, "TYR-N" => -0.4157, "TYR-O" => -0.5679, "TYR-OH" => -0.5579,
-        "VAL-C" => 0.5973, "VAL-CA" => -0.0875, "VAL-CB" => 0.2985, "VAL-CG1" => -0.3192, "VAL-CG2" => -0.3192, "VAL-H" => 0.2719, "VAL-HA" => 0.0969, "VAL-HB" => -0.0297, "VAL-HG11" => 0.0791, "VAL-HG12" => 0.0791, "VAL-HG13" => 0.0791, "VAL-HG21" => 0.0791, "VAL-HG22" => 0.0791, "VAL-HG23" => 0.0791, "VAL-N" => -0.4157, "VAL-O" => -0.5679];
+        "VAL-C" => 0.5973, "VAL-CA" => -0.0875, "VAL-CB" => 0.2985, "VAL-CG1" => -0.3192, "VAL-CG2" => -0.3192, "VAL-H" => 0.2719, "VAL-HA" => 0.0969, "VAL-HB" => -0.0297, "VAL-HG11" => 0.0791, "VAL-HG12" => 0.0791, "VAL-HG13" => 0.0791, "VAL-HG21" => 0.0791, "VAL-HG22" => 0.0791, "VAL-HG23" => 0.0791, "VAL-N" => -0.4157, "VAL-O" => -0.5679,
+        "*-C" => 0.5973, "*-H" => 0.2719, "*-N" => -0.4157, "*-O" => -0.5679, "*-S" => -0.2737, "*-F" => -0.342];
     static ref NT_ELE_CHARGES: HashMap<&'static str, f64> = hashmap![
         "ACE-C" => 0.5972, "ACE-CH3" => -0.3662, "ACE-HH31" => 0.1123, "ACE-HH32" => 0.1123, "ACE-HH33" => 0.1123, "ACE-O" => -0.5679,
         "ALA-C" => 0.6163, "ALA-CA" => 0.0962, "ALA-CB" => -0.0597, "ALA-H1" => 0.1997, "ALA-H2" => 0.1997, "ALA-H3" => 0.1997, "ALA-HA" => 0.0889, "ALA-HB1" => 0.03, "ALA-HB2" => 0.03, "ALA-HB3" => 0.03, "ALA-N" => 0.1414, "ALA-O" => -0.5722,
@@ -230,7 +233,8 @@ lazy_static! {
         "THR-C" => 0.6163, "THR-CA" => 0.0034, "THR-CB" => 0.4514, "THR-CG2" => -0.2554, "THR-H1" => 0.1934, "THR-H2" => 0.1934, "THR-H3" => 0.1934, "THR-HA" => 0.1087, "THR-HB" => -0.0323, "THR-HG1" => 0.407, "THR-HG21" => 0.0627, "THR-HG22" => 0.0627, "THR-HG23" => 0.0627, "THR-N" => 0.1812, "THR-O" => -0.5722, "THR-OG1" => -0.6764,
         "TRP-C" => 0.6123, "TRP-CA" => 0.0421, "TRP-CB" => 0.0543, "TRP-CD1" => -0.1788, "TRP-CD2" => 0.1132, "TRP-CE2" => 0.1575, "TRP-CE3" => -0.2265, "TRP-CG" => -0.1654, "TRP-CH2" => -0.108, "TRP-CZ2" => -0.271, "TRP-CZ3" => -0.2034, "TRP-H1" => 0.1888, "TRP-H2" => 0.1888, "TRP-H3" => 0.1888, "TRP-HA" => 0.1162, "TRP-HB2" => 0.0222, "TRP-HB3" => 0.0222, "TRP-HD1" => 0.2195, "TRP-HE1" => 0.3412, "TRP-HE3" => 0.1646, "TRP-HH2" => 0.1411, "TRP-HZ2" => 0.1589, "TRP-HZ3" => 0.1458, "TRP-N" => 0.1913, "TRP-NE1" => -0.3444, "TRP-O" => -0.5713,
         "TYR-C" => 0.6123, "TYR-CA" => 0.057, "TYR-CB" => 0.0659, "TYR-CD1" => -0.2002, "TYR-CD2" => -0.2002, "TYR-CE1" => -0.2239, "TYR-CE2" => -0.2239, "TYR-CG" => -0.0205, "TYR-CZ" => 0.3139, "TYR-H1" => 0.1873, "TYR-H2" => 0.1873, "TYR-H3" => 0.1873, "TYR-HA" => 0.0983, "TYR-HB2" => 0.0102, "TYR-HB3" => 0.0102, "TYR-HD1" => 0.172, "TYR-HD2" => 0.172, "TYR-HE1" => 0.165, "TYR-HE2" => 0.165, "TYR-HH" => 0.4001, "TYR-N" => 0.194, "TYR-O" => -0.5713, "TYR-OH" => -0.5578,
-        "VAL-C" => 0.6163, "VAL-CA" => -0.0054, "VAL-CB" => 0.3196, "VAL-CG1" => -0.3129, "VAL-CG2" => -0.3129, "VAL-H1" => 0.2272, "VAL-H2" => 0.2272, "VAL-H3" => 0.2272, "VAL-HA" => 0.1093, "VAL-HB" => -0.0221, "VAL-HG11" => 0.0735, "VAL-HG12" => 0.0735, "VAL-HG13" => 0.0735, "VAL-HG21" => 0.0735, "VAL-HG22" => 0.0735, "VAL-HG23" => 0.0735, "VAL-N" => 0.0577, "VAL-O" => -0.5722];
+        "VAL-C" => 0.6163, "VAL-CA" => -0.0054, "VAL-CB" => 0.3196, "VAL-CG1" => -0.3129, "VAL-CG2" => -0.3129, "VAL-H1" => 0.2272, "VAL-H2" => 0.2272, "VAL-H3" => 0.2272, "VAL-HA" => 0.1093, "VAL-HB" => -0.0221, "VAL-HG11" => 0.0735, "VAL-HG12" => 0.0735, "VAL-HG13" => 0.0735, "VAL-HG21" => 0.0735, "VAL-HG22" => 0.0735, "VAL-HG23" => 0.0735, "VAL-N" => 0.0577, "VAL-O" => -0.5722,
+        "*-C" => 0.6163, "*-H" => 0.2272, "*-N" => 0.0577, "*-O" => -0.5722];
 }
 
 pub struct DNADockingModel {
@@ -328,7 +332,19 @@ impl<'a> DNADockingModel {
                                     _ => panic!("DNA Error: Atom [{:?}] not supported", atom_id),
                                 }
                             } else {
-                                panic!("DNA Error: Atom [{:?}] not supported", atom_id);
+                                warn!(
+                                    "DNA Warning: Atom [{:?}] not supported, trying generic",
+                                    atom_id
+                                );
+                                let atom_element = match atom_name.chars().nth(0) {
+                                    Some(c) => c,
+                                    None => 'C',
+                                };
+                                atom_id = format!("*-{}", atom_element);
+                                match AMBER_TYPES.get(&*atom_id) {
+                                    Some(&amber) => amber,
+                                    _ => panic!("DNA Error: Atom [{:?}] not supported", atom_id),
+                                }
                             }
                         }
                     };

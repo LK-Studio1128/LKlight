@@ -185,6 +185,57 @@ fn open_pdb_padded(path: &str) -> pdbtbx::PDB {
     pdb
 }
 
+/// True if `atom` is a hydrogen (or deuterium).
+///
+/// Primary check uses the parsed element column; when that column is missing or
+/// unreliable (common in legacy / tool-generated PDBs), we fall back to the atom
+/// name. In PDB v3 the hydrogen name may carry a leading digit (e.g. `1H5'`,
+/// `2HB`) or be a hydroxyl hydrogen (`HO5'`, `HO3'`, `HO'2`), so we inspect the
+/// first *alphabetic* character. This is safe for protein/nucleic structures,
+/// which contain no elements whose symbol starts with H other than hydrogen.
+fn is_hydrogen_atom(atom: &pdbtbx::Atom) -> bool {
+    if atom.element() == Some(&pdbtbx::Element::H) {
+        return true;
+    }
+    let name = atom.name().trim();
+    matches!(
+        name.chars().find(|c| c.is_ascii_alphabetic()),
+        Some('H') | Some('h') | Some('D') | Some('d')
+    )
+}
+
+/// True if `residue` is a water molecule (covers common PDB / force-field names).
+fn is_water_residue(res_name: &str) -> bool {
+    matches!(
+        res_name.trim().to_ascii_uppercase().as_str(),
+        "HOH" | "WAT" | "H2O" | "SOL" | "TIP" | "TIP3" | "TIP4" | "TIP5" | "T3P" | "T4P" | "DOD"
+    )
+}
+
+/// Apply `setup`-stage atom filtering in place, mirroring LightDock semantics:
+/// `--noh` strips hydrogens, `--noxt` strips terminal `OXT`, `--now` strips water.
+///
+/// Filtering here (before the structure is written to `lightdock_<name>.pdb`)
+/// guarantees the `run`/scoring stage never sees these atoms. This is essential
+/// for the AMBER-based DNA/dDNA scoring, whose atom-type table does not include
+/// non-standard hydrogen names such as `HO5'` / `HO3'` and would otherwise abort.
+fn apply_setup_atom_filters(pdb: &mut pdbtbx::PDB, noh: bool, noxt: bool, now: bool) -> usize {
+    let before = pdb.atom_count();
+    if now {
+        pdb.remove_residues_by(|res| is_water_residue(res.name().unwrap_or("")));
+    }
+    if noh || noxt {
+        pdb.remove_atoms_by(|atom| {
+            (noh && is_hydrogen_atom(atom))
+                || (noxt && atom.name().trim().eq_ignore_ascii_case("OXT"))
+        });
+    }
+    if noh || noxt || now {
+        pdb.remove_empty();
+    }
+    before.saturating_sub(pdb.atom_count())
+}
+
 // ─── ANM helper: extract backbone and all-atom data from a pdbtbx PDB ─────────
 fn extract_anm_data(pdb: &pdbtbx::PDB, is_protein: bool)
     -> (Vec<[f64;3]>, Vec<[f64;3]>, Vec<(i32, char)>, Vec<(i32, char)>)
@@ -342,6 +393,18 @@ fn cmd_setup(args: &[String]) {
     let mut rec = open_pdb_padded(rec_file);
     println!("Reading ligand:   {}", lig_file);
     let mut lig = open_pdb_padded(lig_file);
+
+    // ── Atom filtering (--noh / --noxt / --now) ──────────────────────────────
+    // Must run before CoM/translation/ANM/save so the cleaned structure is what
+    // every downstream stage (including scoring) consumes.
+    if noh || noxt || now {
+        let rec_removed = apply_setup_atom_filters(&mut rec, noh, noxt, now);
+        let lig_removed = apply_setup_atom_filters(&mut lig, noh, noxt, now);
+        println!(
+            "Atom filters [noh={} noxt={} now={}]: removed {} receptor / {} ligand atoms",
+            noh, noxt, now, rec_removed, lig_removed
+        );
+    }
 
     let rc = com(&rec); let lc = com(&lig);
     println!("Receptor CoM: [{:.3},{:.3},{:.3}]  Ligand CoM: [{:.3},{:.3},{:.3}]",

@@ -107,22 +107,27 @@ impl SDDockingModel {
                     let atom_name = atom.name().trim();
                     let mut atom_id = format!("{}-{}", res_name, atom_name);
 
+                    // Never panics: unknown atoms fall back to a generic element type,
+                    // then to a neutral carbon-like type.
                     let amber_type = match AMBER_TYPES.get(&*atom_id) {
                         Some(&t) => t,
                         _ => {
-                            if atom_name == "H1" || atom_name == "H2" || atom_name == "H3" {
-                                atom_id = format!("{}-H", res_name);
-                                match AMBER_TYPES.get(&*atom_id) {
-                                    Some(&t) => t,
-                                    _ => panic!("SD Error: Atom [{:?}] not supported", atom_id),
-                                }
+                            let h_id = format!("{}-H", res_name);
+                            if (atom_name == "H1" || atom_name == "H2" || atom_name == "H3")
+                                && AMBER_TYPES.contains_key(&*h_id)
+                            {
+                                atom_id = h_id;
+                                AMBER_TYPES[&*atom_id]
                             } else {
-                                warn!("SD Warning: Atom [{:?}] not supported, trying generic", atom_id);
-                                let elem = atom_name.chars().next().unwrap_or('C');
+                                let elem =
+                                    atom_name.chars().next().unwrap_or('C').to_ascii_uppercase();
                                 atom_id = format!("*-{}", elem);
                                 match AMBER_TYPES.get(&*atom_id) {
                                     Some(&t) => t,
-                                    _ => panic!("SD Error: Atom [{:?}] not supported", atom_id),
+                                    _ => {
+                                        warn!("SD Warning: Atom [{:?}] not supported, using neutral fallback", atom_id);
+                                        "C"
+                                    }
                                 }
                             }
                         }
@@ -132,18 +137,16 @@ impl SDDockingModel {
                         Some(&c) => c,
                         _ => match NT_ELE_CHARGES.get(&*atom_id) {
                             Some(&c) => c,
-                            _ => panic!("SD Error: Atom [{:?}] ele charge not found", atom_id),
+                            _ => 0.0,
                         },
                     };
                     model.ele_charges.push(ele_charge);
 
-                    let vdw_charge = *VDW_CHARGES.get(amber_type)
-                        .unwrap_or_else(|| panic!("SD: VDW charge not found for {:?}", atom_id));
+                    let vdw_charge = *VDW_CHARGES.get(amber_type).unwrap_or(&0.086);
                     model.vdw_charges.push(vdw_charge);
                     model.sqrt_vdw_charges.push(vdw_charge.sqrt());
 
-                    let vdw_radius = *VDW_RADII.get(amber_type)
-                        .unwrap_or_else(|| panic!("SD: VDW radius not found for {:?}", atom_id));
+                    let vdw_radius = *VDW_RADII.get(amber_type).unwrap_or(&1.908);
                     model.vdw_radii.push(vdw_radius);
 
                     model.coordinates.push([atom.x(), atom.y(), atom.z()]);

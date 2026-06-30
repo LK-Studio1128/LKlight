@@ -105,58 +105,50 @@ impl<'a> PYDOCKDockingModel {
                     let atom_name = atom.name().trim();
                     let mut atom_id = format!("{}-{}", res_name, atom_name);
 
-                    // Calculate AMBER type
+                    // Calculate AMBER type (never panics: unknown atoms fall back to a
+                    // generic element type, then to a neutral carbon-like type)
                     let amber_type = match AMBER_TYPES.get(&*atom_id) {
                         Some(&amber) => amber,
                         _ => {
-                            if atom_name == "H1" || atom_name == "H2" || atom_name == "H3" {
-                                atom_id = format!("{}-H", res_name);
-                                match AMBER_TYPES.get(&*atom_id) {
-                                    Some(&amber) => amber,
-                                    _ => panic!("PYDOCK Error: Atom [{:?}] not supported", atom_id),
-                                }
+                            let h_id = format!("{}-H", res_name);
+                            if (atom_name == "H1" || atom_name == "H2" || atom_name == "H3")
+                                && AMBER_TYPES.contains_key(&*h_id)
+                            {
+                                atom_id = h_id;
+                                AMBER_TYPES[&*atom_id]
                             } else {
-                                warn!(
-                                    "PYDOCK Warning: Atom [{:?}] not supported, trying generic",
-                                    atom_id
-                                );
-                                let atom_element = match atom_name.chars().nth(0) {
-                                    Some(element) => element,
-                                    _ => panic!("PYDOCK Error: Atom element could not be guessed from [{:?}]", atom_name),
-                                };
+                                let atom_element =
+                                    atom_name.chars().next().unwrap_or('C').to_ascii_uppercase();
                                 atom_id = format!("*-{}", atom_element);
                                 match AMBER_TYPES.get(&*atom_id) {
                                     Some(&amber) => amber,
-                                    _ => panic!("PYDOCK Error: Atom [{:?}] not supported", atom_id),
+                                    _ => {
+                                        warn!(
+                                            "PYDOCK Warning: Atom [{:?}] not supported, using neutral fallback",
+                                            atom_id
+                                        );
+                                        "C"
+                                    }
                                 }
                             }
                         }
                     };
 
-                    // Assign electrostatics charge
+                    // Assign electrostatics charge (defaults to 0.0 for unknown atoms)
                     let ele_charge = match ELE_CHARGES.get(&*atom_id) {
                         Some(&charge) => charge,
                         _ => match NT_ELE_CHARGES.get(&*atom_id) {
                             Some(&charge) => charge,
-                            _ => panic!(
-                                "PYDOCK Error: Atom [{:?}] electrostatics charge not found",
-                                atom_id
-                            ),
+                            _ => 0.0,
                         },
                     };
                     model.ele_charges.push(ele_charge);
 
-                    // Assign VDW charge and radius
-                    let vdw_charge = match VDW_CHARGES.get(amber_type) {
-                        Some(&charge) => charge,
-                        _ => panic!("PYDOCK Error: Atom [{:?}] VDW charge not found", atom_id),
-                    };
+                    // Assign VDW charge and radius (carbon-like defaults for unknown types)
+                    let vdw_charge = *VDW_CHARGES.get(amber_type).unwrap_or(&0.086);
                     model.vdw_charges.push(vdw_charge);
                     model.sqrt_vdw_charges.push(vdw_charge.sqrt());
-                    let vdw_radius = match VDW_RADII.get(amber_type) {
-                        Some(&radius) => radius,
-                        _ => panic!("PYDOCK Error: Atom [{:?}] VDW radius not found", atom_id),
-                    };
+                    let vdw_radius = *VDW_RADII.get(amber_type).unwrap_or(&1.908);
                     model.vdw_radii.push(vdw_radius);
 
                     model.coordinates.push([atom.x(), atom.y(), atom.z()]);

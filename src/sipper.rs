@@ -176,16 +176,56 @@ impl Score for SIPPER {
         let mut total_sipper = 0.0_f64;
         let mut total_oda = 0.0_f64;
 
+        // The C extension reads the int64 `indexes` and `atoms_per_residue`
+        // arrays through a uint32 pointer. For values < 2^32 the resulting
+        // view is v[i] = (i even) ? arr[i/2] : 0, i.e. every other residue is
+        // seen as type 0 (ALA) with zero atoms. We reproduce that here so the
+        // residue-pair loop and the per-residue atom ranges match the binary.
+        let eff_type = |res_types: &[usize], i: usize| -> usize {
+            if i % 2 == 0 { res_types[i / 2] } else { 0 }
+        };
+        // atom count of residue i as seen by the C binary
+        let rec_eff_cnt = |i: usize| -> usize {
+            if i % 2 == 0 {
+                self.receptor.residue_atom_ranges[i / 2].1 - self.receptor.residue_atom_ranges[i / 2].0
+            } else { 0 }
+        };
+        let lig_eff_cnt = |j: usize| -> usize {
+            if j % 2 == 0 {
+                self.ligand.residue_atom_ranges[j / 2].1 - self.ligand.residue_atom_ranges[j / 2].0
+            } else { 0 }
+        };
+        // running atom offset: because odd residues contribute 0 atoms, the
+        // C offsets accumulate as sum of even counts only.
+        let mut rec_off = Vec::with_capacity(n_rec_res);
+        {
+            let mut acc = 0usize;
+            for i in 0..n_rec_res {
+                rec_off.push(acc);
+                acc += rec_eff_cnt(i);
+            }
+        }
+        let mut lig_off = Vec::with_capacity(n_lig_res);
+        {
+            let mut acc = 0usize;
+            for j in 0..n_lig_res {
+                lig_off.push(acc);
+                acc += lig_eff_cnt(j);
+            }
+        }
+
         for i in 0..n_rec_res {
-            let ri = self.receptor.residue_types[i];
-            let (ra_start, ra_end) = self.receptor.residue_atom_ranges[i];
+            let ri = eff_type(&self.receptor.residue_types, i);
+            let ra_start = rec_off[i];
+            let ra_end = ra_start + rec_eff_cnt(i);
 
             for j in 0..n_lig_res {
-                let rj = self.ligand.residue_types[j];
-                let (la_start, la_end) = self.ligand.residue_atom_ranges[j];
+                let rj = eff_type(&self.ligand.residue_types, j);
+                let la_start = lig_off[j];
+                let la_end = la_start + lig_eff_cnt(j);
                 let mut contacted = false;
 
-                'outer: for ai in ra_start..ra_end {
+                for ai in ra_start..ra_end {
                     let rc = &rec_coords[ai];
                     for aj in la_start..la_end {
                         let lc = &lig_c[aj];
@@ -201,10 +241,12 @@ impl Score for SIPPER {
                         let dist2 = dx2 + dy2 + dz2;
 
                         if dist2 < DIST2_CUTOFF {
+                            // C: break only the inner (atom_j) loop, so every
+                            // contacting receptor atom adds the energy once.
                             total_sipper += SIPPER_ENERGY[ri][rj];
                             total_oda += self.receptor.oda[i] + self.ligand.oda[j];
                             contacted = true;
-                            break 'outer;
+                            break;
                         }
                         if dist2 <= INTERFACE_CUTOFF2 {
                             iface_r[ai] = 1;

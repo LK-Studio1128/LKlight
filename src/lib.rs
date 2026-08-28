@@ -11,6 +11,7 @@ pub mod dfire;
 pub mod dfire2;
 pub mod dna;
 pub mod glowworm;
+pub mod lr_sasa;
 pub mod mj3h;
 pub mod pisa;
 pub mod pydock;

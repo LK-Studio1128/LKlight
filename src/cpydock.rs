@@ -1,17 +1,27 @@
 /// cpydock.rs — PyDock scoring with contact-based SASA desolvation energy.
 ///
-/// Equivalent to the Python cpydock scoring function (cpydock/energy/c/cpydock.c).
-/// Energy = (elec + 0.1 × vdw + solv) × -1.0
-/// where solv = -(solv_rec + solv_lig) (desolvation is favourable when buried).
+/// Bit-faithful port of the Python cpydock scoring function
+/// (lightdock/scoring/cpydock: driver.py + energy/c/cpydock.c + freesasa).
 ///
-/// Desolvation formula per atom i (receptor):
-///   d = min distance to any heavy ligand atom
-///   if d ≤ 6.4 Å and asa[i] > 0:
-///       solv = min(-10×d + 65, asa[i])
-///       total_solv_rec += solv × des_energy[i]
+/// Energy = (elec + 0.1×vdw + solv) × -1.0
+/// where solv = -(solv_rec + solv_lig).
+///
+/// Reference-equivalent behaviours reproduced exactly:
+///  1. Reference SASA per atom is computed with freesasa's Lee & Richards
+///     algorithm on the *unbound* monomer (probe 1.4 Å, 20 slices, radii =
+///     desolvation radii), NOT a lookup table.
+///  2. Desolvation energy/radius coefficients come from the asp_type
+///     (residue, atom) table first, falling back to the AMBER-type table.
+///  3. The hydrogen flag array is int64 in Python but read as uint32 by the C
+///     extension; the resulting flag view is f(i) = (i even) ? hyd[i/2] : 0.
+///     The min-distance update condition mirrors the C source:
+///     `!f_rec[i] && !f_lig[j]`.
+///  4. min distance initialised to HUGE_DISTANCE = 10000.0 and the
+///     solvation window is SOLVATION_DISTANCE2 = 6.4*6.4.
 
 use super::amber::{AMBER_TYPES, ELE_CHARGES, NT_ELE_CHARGES, VDW_CHARGES, VDW_RADII};
 use super::constants::{INTERFACE_CUTOFF2, MEMBRANE_PENALTY_SCORE};
+use super::lr_sasa::lee_richards_sasa;
 use super::qt::{rot3_apply, Quaternion};
 use super::scoring::{membrane_intersection, satisfied_restraints, Score};
 use log::{info, warn};
@@ -28,11 +38,85 @@ const VDW_CUTOFF: f64 = 1.0;
 const ELEC_DIST_CUTOFF2: f64 = 30.0 * 30.0;
 const VDW_DIST_CUTOFF: f64 = 10.0;
 const VDW_DIST_CUTOFF2: f64 = VDW_DIST_CUTOFF * VDW_DIST_CUTOFF;
-const SOLVATION_DISTANCE2: f64 = 6.4 * 6.4; // 40.96 Å²
+const SOLVATION_DISTANCE2: f64 = 6.4 * 6.4; // 40.959999999999994 (as in C)
 const VDW_WEIGHT: f64 = 0.1;
 
-// ── Desolvation energy coefficient by AMBER type (charges_per_asp_amber) ─────
-fn des_energy_by_amber(amber_type: &str) -> f64 {
+// ── Desolvation coefficients (solvation.py) ──────────────────────────────────
+
+/// asp_type_charges / asp_type_radius indexed by ASP type
+const ASP_CHARGES: [f64; 11] = [
+    0.0, 0.01918, 0.1108, -0.0391, -0.12604, -0.06256, -0.04255, -0.03128, -0.06877, 0.02576,
+    0.00506,
+];
+const ASP_RADII: [f64; 11] = [
+    0.0, 1.95, 1.8, 1.7, 1.7, 1.7, 1.6, 1.4, 1.4, 2.0, 1.85,
+];
+
+/// radius_per_asp: fallback desolvation radius by AMBER type
+fn radius_per_asp(amber_type: &str) -> f64 {
+    match amber_type {
+        "C" | "CD" | "CT" | "CY" | "CZ" => 1.95,
+        "C*" | "CA" | "CB" | "CC" | "CK" | "CM" | "CN" | "CQ" | "CR" | "CV" | "CW" => 1.8,
+        "N" | "N*" | "N2" | "N3" | "NA" | "NB" | "NC" | "NT" | "NY" => 1.7,
+        "O" | "O2" | "O3" => 1.4,
+        "OH" | "OS" | "OW" => 1.6,
+        "S" => 1.85,
+        "SH" => 2.0,
+        _ => 0.0,
+    }
+}
+
+/// asp_type table: (residue, atom) → ASP type index
+fn asp_type(res_name: &str, atom_name: &str) -> Option<usize> {
+    let t = match res_name {
+        "ABU" => match atom_name { "C"|"CB"|"CA"|"CG" => 1, "O" => 7, "N" => 3, _ => return None },
+        "AHP" => match atom_name { "C"|"CB"|"CA"|"CG"|"CE"|"CD"|"CZ" => 1, "O" => 7, "N" => 3, _ => return None },
+        "AHX" => match atom_name { "C"|"CB"|"CA"|"CG"|"CE"|"CD" => 1, "O" => 7, "N" => 3, _ => return None },
+        "ALA" => match atom_name { "CB"|"CA"|"C" => 1, "O" => 7, "N" => 3, _ => return None },
+        "APE" => match atom_name { "C"|"CB"|"CA"|"CG"|"CD" => 1, "O" => 7, "N" => 3, _ => return None },
+        "ARG" => match atom_name { "C"|"CB"|"CA"|"CG"|"CD"|"CZ" => 1, "NE" => 3, "O" => 7, "NH1"|"NH2" => 5, "N" => 3, _ => return None },
+        "ASN" => match atom_name { "C"|"CB"|"CA"|"CG" => 1, "O"|"OD1" => 7, "N"|"ND2" => 3, _ => return None },
+        "ASP" => match atom_name { "C"|"CB"|"CA"|"CG" => 1, "O" => 7, "N" => 3, "OD1"|"OD2" => 8, _ => return None },
+        "CYS" => match atom_name { "C"|"CB"|"CA" => 1, "O" => 7, "N" => 3, "SG" => 9, _ => return None },
+        "GLN" => match atom_name { "C"|"CB"|"CA"|"CG"|"CD" => 1, "O"|"OE1" => 7, "N"|"NE2" => 3, _ => return None },
+        "GLU" => match atom_name { "C"|"CB"|"CA"|"CG"|"CD" => 1, "O" => 7, "OE1"|"OE2" => 8, "N" => 3, _ => return None },
+        "GLY" => match atom_name { "CA"|"C" => 1, "O" => 7, "N" => 3, _ => return None },
+        "HID" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CD2" => 2, "O" => 7, "N"|"NE2" => 3, "ND1" => 4, _ => return None },
+        "HIE" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CD2" => 2, "O" => 7, "N"|"ND1" => 3, "NE2" => 4, _ => return None },
+        "HIP" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CD2" => 2, "O" => 7, "N" => 3, "ND1"|"NE2" => 4, _ => return None },
+        "HIS" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CD2" => 2, "O" => 7, "N" => 3, "ND1"|"NE2" => 4, _ => return None },
+        "HSC" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CD2" => 2, "O" => 7, "N" => 3, "ND1"|"NE2" => 4, _ => return None },
+        "HSE" => match atom_name { "C"|"CB"|"CA"|"CG" => 1, "OD"|"O" => 7, "N" => 3, _ => return None },
+        "ILE" => match atom_name { "C"|"CB"|"CA"|"CD1"|"CG1"|"CG2" => 1, "O" => 7, "N" => 3, _ => return None },
+        "LEU" => match atom_name { "C"|"CB"|"CA"|"CG"|"CD1"|"CD2" => 1, "O" => 7, "N" => 3, _ => return None },
+        "LYS" => match atom_name { "C"|"CB"|"CA"|"CG"|"CE"|"CD" => 1, "NZ" => 4, "O" => 7, "N" => 3, _ => return None },
+        "MET" => match atom_name { "C"|"CB"|"CA"|"CG"|"CE" => 1, "N" => 3, "O" => 7, "SD" => 10, _ => return None },
+        "PHE" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CZ"|"CD1"|"CD2"|"CE2" => 2, "O" => 7, "N" => 3, _ => return None },
+        "PRO" => match atom_name { "C"|"CB"|"CA"|"CG"|"CD" => 1, "O" => 7, "N" => 3, _ => return None },
+        "SER" => match atom_name { "C"|"CB"|"CA" => 1, "OG" => 6, "O" => 7, "N" => 3, _ => return None },
+        "THR" => match atom_name { "C"|"CB"|"CA"|"CG2" => 1, "OG1" => 6, "O" => 7, "N" => 3, _ => return None },
+        "TRP" => match atom_name { "C"|"CB"|"CA" => 1, "CZ2"|"CG"|"CH2"|"CE2"|"CE3"|"CD1"|"CD2"|"CZ3" => 2, "O" => 7, "N"|"NE1" => 3, _ => return None },
+        "TYR" => match atom_name { "C"|"CB"|"CA" => 1, "CE1"|"CG"|"CZ"|"CD1"|"CD2"|"CE2" => 2, "OH" => 6, "O" => 7, "N" => 3, _ => return None },
+        "VAL" => match atom_name { "C"|"CB"|"CA"|"CG1"|"CG2" => 1, "O" => 7, "N" => 3, _ => return None },
+        _ => return None,
+    };
+    Some(t)
+}
+
+/// Desolvation energy coefficient: asp_type first, then AMBER-type table
+/// (mirrors solvation.get_solvation including the OXT/CYX/HSD/HSP/HSE/HID
+/// residue-renaming special cases).
+fn des_energy(res_name: &str, atom_name: &str, amber_type: &str) -> f64 {
+    let (mut rr, mut aa) = (res_name.to_string(), atom_name.to_string());
+    if aa == "OXT" { rr = "ASP".into(); aa = "OD1".into(); }
+    if rr == "CYX" { rr = "CYS".into(); }
+    if rr == "HSD" { rr = "HID".into(); }
+    if rr == "HSP" { rr = "HIP".into(); }
+    if rr == "HSE" { rr = "HIE".into(); }
+    if rr == "HID" { rr = "HIP".into(); }
+    if let Some(t) = asp_type(&rr, &aa) {
+        return ASP_CHARGES[t];
+    }
     match amber_type {
         "CT" | "C" | "CD" | "CZ" | "CY" => 0.01918,
         "CA" | "CB" | "CC" | "CK" | "CM" | "CN" | "CQ" | "CR" | "CV" | "CW" | "C*" => 0.1108,
@@ -47,33 +131,19 @@ fn des_energy_by_amber(amber_type: &str) -> f64 {
     }
 }
 
-// ── Reference SASA per (residue, atom) from solvation.py reference_area ──────
-fn reference_asa(res_name: &str, atom_name: &str) -> Option<f64> {
-    let v = match res_name {
-        "ALA" => match atom_name { "C"=>1.68,"CB"=>56.29,"CA"=>6.32,"O"=>23.84,"N"=>3.04, _=>return None },
-        "ARG" => match atom_name { "C"=>1.78,"CB"=>22.95,"CA"=>6.98,"CG"=>30.21,"O"=>24.79,"CD"=>41.17,"N"=>4.16,"CZ"=>19.85,"NE"=>34.45,"NH1"=>60.12,"NH2"=>61.74, _=>return None },
-        "ASN" => match atom_name { "C"=>3.74,"CB"=>28.23,"CA"=>5.0,"CG"=>13.03,"O"=>25.02,"N"=>4.86,"OD1"=>30.66,"ND2"=>53.44, _=>return None },
-        "ASP" => match atom_name { "C"=>4.43,"CB"=>31.86,"CA"=>6.95,"CG"=>20.76,"O"=>23.38,"N"=>5.36,"OD1"=>23.23,"OD2"=>36.41, _=>return None },
-        "CYS" => match atom_name { "C"=>3.61,"CB"=>33.83,"CA"=>7.23,"O"=>24.54,"N"=>4.49,"SG"=>64.53, _=>return None },
-        "GLN" => match atom_name { "C"=>3.5,"CB"=>18.83,"CA"=>6.97,"CG"=>28.65,"O"=>24.86,"CD"=>15.46,"N"=>5.66,"NE2"=>52.85,"OE1"=>34.89, _=>return None },
-        "GLU" => match atom_name { "C"=>2.7,"CB"=>23.63,"CA"=>7.1,"CG"=>32.13,"O"=>25.99,"CD"=>23.66,"OE2"=>34.58,"N"=>2.9,"OE1"=>29.9, _=>return None },
-        "GLY" => match atom_name { "CA"=>40.04,"C"=>8.29,"O"=>27.15,"N"=>13.87, _=>return None },
-        "HIS"|"HID"|"HIE"|"HIP"|"HSC"|"HSE" => match atom_name { "C"=>4.77,"CE1"=>52.36,"CB"=>26.63,"CA"=>4.88,"CG"=>4.01,"O"=>25.71,"N"=>2.88,"CD2"=>37.62,"ND1"=>19.57,"NE2"=>27.31, _=>return None },
-        "ILE" => match atom_name { "C"=>2.52,"CB"=>7.86,"CA"=>6.22,"O"=>22.93,"N"=>4.52,"CD1"=>69.96,"CG1"=>23.65,"CG2"=>51.08, _=>return None },
-        "LEU" => match atom_name { "C"=>2.05,"CB"=>24.49,"CA"=>6.34,"CG"=>10.99,"O"=>23.43,"CD1"=>64.19,"CD2"=>67.77,"N"=>4.31, _=>return None },
-        "LYS" => match atom_name { "C"=>2.11,"CB"=>23.8,"CA"=>9.32,"CG"=>21.55,"CE"=>42.83,"CD"=>28.36,"NZ"=>59.79,"O"=>23.7,"N"=>6.55, _=>return None },
-        "MET" => match atom_name { "C"=>2.73,"CB"=>26.63,"CA"=>6.79,"CG"=>28.25,"O"=>23.26,"SD"=>51.12,"CE"=>62.36,"N"=>4.27, _=>return None },
-        "PHE" => match atom_name { "C"=>2.12,"CZ"=>37.78,"CB"=>21.04,"CA"=>5.31,"CG"=>3.18,"O"=>23.86,"N"=>3.51,"CE1"=>37.4,"CE2"=>37.5,"CD1"=>22.73,"CD2"=>22.7, _=>return None },
-        "PRO" => match atom_name { "C"=>1.27,"CB"=>37.06,"CA"=>11.0,"CG"=>41.44,"O"=>18.32,"CD"=>31.15,"N"=>0.53, _=>return None },
-        "SER" => match atom_name { "C"=>4.94,"OG"=>31.08,"CB"=>46.15,"CA"=>9.06,"O"=>23.7,"N"=>6.44, _=>return None },
-        "THR" => match atom_name { "C"=>3.56,"CB"=>15.51,"CA"=>6.38,"OG1"=>30.13,"O"=>24.81,"N"=>4.58,"CG2"=>62.7, _=>return None },
-        "TRP" => match atom_name { "C"=>4.13,"CZ2"=>37.81,"CB"=>25.13,"CA"=>2.3,"CG"=>3.01,"CH2"=>38.2,"O"=>24.82,"N"=>2.58,"CE2"=>6.66,"CE3"=>21.85,"CD1"=>32.84,"CD2"=>2.78,"CZ3"=>37.25,"NE1"=>25.66, _=>return None },
-        "TYR" => match atom_name { "C"=>2.07,"CZ"=>17.63,"CB"=>22.44,"CA"=>5.54,"CG"=>2.8,"O"=>23.87,"OH"=>38.04,"N"=>3.67,"CE1"=>37.67,"CE2"=>37.62,"CD1"=>23.04,"CD2"=>23.12, _=>return None },
-        "VAL" => match atom_name { "C"=>1.68,"CB"=>9.17,"CA"=>5.8,"O"=>23.84,"N"=>3.04,"CG1"=>58.93,"CG2"=>59.67, _=>return None },
-        "ABU" => match atom_name { "C"=>1.68,"CB"=>9.17,"CA"=>5.8,"CG"=>59.67,"O"=>23.84,"N"=>3.04, _=>return None },
-        _ => return None,
-    };
-    Some(v)
+/// Desolvation radius: asp_type first, then radius_per_asp (same renames).
+fn des_radius(res_name: &str, atom_name: &str, amber_type: &str) -> f64 {
+    let (mut rr, mut aa) = (res_name.to_string(), atom_name.to_string());
+    if aa == "OXT" { rr = "ASP".into(); aa = "OD1".into(); }
+    if rr == "CYX" { rr = "CYS".into(); }
+    if rr == "HSD" { rr = "HID".into(); }
+    if rr == "HSP" { rr = "HIP".into(); }
+    if rr == "HSE" { rr = "HIE".into(); }
+    if rr == "HID" { rr = "HIP".into(); }
+    if let Some(t) = asp_type(&rr, &aa) {
+        return ASP_RADII[t];
+    }
+    radius_per_asp(amber_type)
 }
 
 // ── Model ─────────────────────────────────────────────────────────────────────
@@ -92,7 +162,7 @@ pub struct CPYDOCKDockingModel {
     pub ele_charges: Vec<f64>,
     pub des_energy: Vec<f64>,  // desolvation energy coefficient per atom
     pub asa: Vec<f64>,         // reference SASA per atom (-1.0 = hydrogen, excluded)
-    pub is_heavy: Vec<bool>,   // true if not hydrogen
+    pub hydrogens: Vec<i32>,   // 1 = heavy, 0 = hydrogen (int64 semantics, see C read bug)
 }
 
 impl CPYDOCKDockingModel {
@@ -117,7 +187,7 @@ impl CPYDOCKDockingModel {
             ele_charges: Vec::new(),
             des_energy: Vec::new(),
             asa: Vec::new(),
-            is_heavy: Vec::new(),
+            hydrogens: Vec::new(),
         };
 
         let mut atom_index: u64 = 0;
@@ -193,26 +263,71 @@ impl CPYDOCKDockingModel {
                     let vdw_radius = *VDW_RADII.get(amber_type).unwrap_or(&1.908);
                     model.vdw_radii.push(vdw_radius);
 
-                    // Hydrogen check: atom name starts with 'H'
-                    let heavy = !atom_name.starts_with('H');
-                    model.is_heavy.push(heavy);
+                    // Hydrogen check: element column (PDB) like Python
+                    let is_h = atom.element().map(|e| e.symbol() == "H")
+                        .unwrap_or_else(|| atom_name.starts_with('H'));
+                    let heavy = !is_h;
+                    model.hydrogens.push(if heavy { 1 } else { 0 });
 
                     // Desolvation energy coefficient
-                    model.des_energy.push(des_energy_by_amber(amber_type));
+                    model.des_energy.push(des_energy(res_name, atom_name, amber_type));
 
-                    // Reference SASA
-                    let asa_val = if !heavy {
-                        -1.0  // hydrogen → excluded
-                    } else {
-                        reference_asa(res_name, atom_name).unwrap_or(100.0)
-                    };
-                    model.asa.push(asa_val);
+                    // Reference SASA filled below (needs all heavy atoms first)
+                    model.asa.push(-1.0); // placeholder; overwritten for heavy atoms
 
                     model.coordinates.push([atom.x(), atom.y(), atom.z()]);
                     atom_index += 1;
                 }
             }
         }
+
+        // ── Reference SASA with freesasa Lee-Richards on the unbound monomer ──
+        // Only heavy atoms participate (as in driver.py); radii = des_radii.
+        // Collect heavy atoms (with their global index) + desolvation radii.
+        let mut hc: Vec<[f64; 3]> = Vec::new();
+        let mut heavy_idx: Vec<usize> = Vec::new();
+        let mut names: Vec<(String, String)> = Vec::new();
+        let mut global_i = 0usize;
+        for chain in structure.chains() {
+            for residue in chain.residues() {
+                let res_name = residue.name().unwrap_or("UNK").to_string();
+                for atom in residue.atoms() {
+                    let atom_name = atom.name().trim().to_string();
+                    let is_h = atom.element().map(|e| e.symbol() == "H")
+                        .unwrap_or_else(|| atom_name.starts_with('H'));
+                    if is_h { global_i += 1; continue; }
+                    hc.push([atom.x(), atom.y(), atom.z()]);
+                    heavy_idx.push(global_i);
+                    names.push((res_name.clone(), atom_name));
+                    global_i += 1;
+                }
+            }
+        }
+        // amber types for radius fallback (same logic as main loop)
+        let mut hr: Vec<f64> = Vec::with_capacity(names.len());
+        for (rn, an) in &names {
+            let atom_id = format!("{}-{}", rn, an);
+            let at = match AMBER_TYPES.get(&*atom_id) {
+                Some(&t) => t.to_string(),
+                _ => {
+                    let h_id = format!("{}-H", rn);
+                    if (an == "H1" || an == "H2" || an == "H3") && AMBER_TYPES.contains_key(&*h_id)
+                    {
+                        AMBER_TYPES[&*h_id].to_string()
+                    } else {
+                        let elem = an.chars().next().unwrap_or('C').to_ascii_uppercase();
+                        let a2 = format!("*-{}", elem);
+                        AMBER_TYPES.get(&*a2).map(|s| s.to_string()).unwrap_or_else(|| "C".to_string())
+                    }
+                }
+            };
+            hr.push(des_radius(rn, an, &at));
+        }
+        let areas = lee_richards_sasa(&hc, &hr);
+        for (&pos, &area) in heavy_idx.iter().zip(areas.iter()) {
+            model.asa[pos] = area;
+        }
+
         info!("CPYDOCK atoms read: {}", atom_index);
         model
     }
@@ -283,7 +398,7 @@ impl Score for CPYDOCK {
             lig_c.copy_from_slice(&self.ligand.coordinates);
             for v in iface_r.iter_mut() { *v = 0; }
             for v in iface_l.iter_mut() { *v = 0; }
-            const HUGE: f64 = 1.0e9;
+            const HUGE: f64 = 10000.0; // HUGE_DISTANCE in cpydock.c
             for v in min_rec.iter_mut() { *v = HUGE; }
             for v in min_lig.iter_mut() { *v = HUGE; }
 
@@ -322,51 +437,56 @@ impl Score for CPYDOCK {
                 }
             }
 
-            // ── Phase 1: parallel ELEC + VDW (receptor atoms in parallel) ────────
+            // ── Single (i,j) main loop, order identical to cpydock.c ────────
+            // C: for i: for j: min_dist; elec; vdw; interface
             let rec_ele  = &self.receptor.ele_charges;
             let lig_ele  = &self.ligand.ele_charges;
-            let rec_svdw = &self.receptor.sqrt_vdw_charges;
-            let lig_svdw = &self.ligand.sqrt_vdw_charges;
+            let rec_vdwq = &self.receptor.vdw_charges;
+            let lig_vdwq = &self.ligand.vdw_charges;
             let rec_vdwr = &self.receptor.vdw_radii;
             let lig_vdwr = &self.ligand.vdw_radii;
-            let lig_slice: &[[f64; 3]] = lig_c.as_slice();
+            let rec_hyd  = &self.receptor.hydrogens;
+            let lig_hyd  = &self.ligand.hydrogens;
 
-            let (total_elec_raw, total_vdw) = rec_c.iter().enumerate()
-                .map(|(i, ra)| {
-                    let rx = ra[0]; let ry = ra[1]; let rz = ra[2];
-                    let mut ei = 0.0f64;
-                    let mut vi = 0.0f64;
-                    for (j, la) in lig_slice.iter().enumerate() {
-                        let dx = rx - la[0]; let dy = ry - la[1]; let dz = rz - la[2];
-                        let d2 = dx*dx + dy*dy + dz*dz;
-                        if d2 <= ELEC_DIST_CUTOFF2 {
-                            let ae = (rec_ele[i] * lig_ele[j] / d2)
-                                .clamp(ELEC_MIN_CUTOFF, ELEC_MAX_CUTOFF);
-                            ei += ae;
-                        }
-                        if d2 <= VDW_DIST_CUTOFF2 {
-                            let vdw_e = rec_svdw[i] * lig_svdw[j];
-                            let vdw_r = rec_vdwr[i] + lig_vdwr[j];
-                            let p6 = vdw_r.powi(6) / d2.powi(3);
-                            vi += (vdw_e * (p6*p6 - 2.0*p6)).min(VDW_CUTOFF);
-                        }
-                    }
-                    (ei, vi)
-                })
-                .fold((0.0, 0.0), |(e1, v1), (e2, v2)| (e1+e2, v1+v2));
+            // hydrogen flag as seen by the C binary (uint32 view of int64):
+            // f(i) = (i even) ? hyd[i/2] : 0
+            let rec_flag = |i: usize| -> bool {
+                if i % 2 == 0 { rec_hyd[i / 2] != 0 } else { false }
+            };
+            let lig_flag = |j: usize| -> bool {
+                if j % 2 == 0 { lig_hyd[j / 2] != 0 } else { false }
+            };
 
-            let total_elec = total_elec_raw * FACTOR / EPSILON;
-
-            // ── Phase 2: min_rec, min_lig, interface flags (sequential) ───────
+            let mut total_elec = 0.0f64;
+            let mut total_vdw = 0.0f64;
             for (i, ra) in rec_c.iter().enumerate() {
-                let rec_heavy = self.receptor.is_heavy[i];
-                for (j, la) in lig_slice.iter().enumerate() {
-                    let dx = ra[0]-la[0]; let dy = ra[1]-la[1]; let dz = ra[2]-la[2];
+                let rx = ra[0]; let ry = ra[1]; let rz = ra[2];
+                for (j, la) in lig_c.iter().enumerate() {
+                    let dx = rx - la[0]; let dy = ry - la[1]; let dz = rz - la[2];
                     let d2 = dx*dx + dy*dy + dz*dz;
-                    if rec_heavy && self.ligand.is_heavy[j] {
+
+                    // min distance update (C: if(!flag_i && !flag_j))
+                    if !rec_flag(i) && !lig_flag(j) {
                         if d2 < min_rec[i] { min_rec[i] = d2; }
                         if d2 < min_lig[j] { min_lig[j] = d2; }
                     }
+
+                    // Electrostatics (C clamps with ifs, same as clamp)
+                    if d2 <= ELEC_DIST_CUTOFF2 {
+                        let ae = (rec_ele[i] * lig_ele[j] / d2)
+                            .clamp(ELEC_MIN_CUTOFF, ELEC_MAX_CUTOFF);
+                        total_elec += ae;
+                    }
+
+                    // Van der Waals (C: sqrt(a*b), pow(x,6)/pow(y,3))
+                    if d2 <= VDW_DIST_CUTOFF2 {
+                        let vdw_e = (rec_vdwq[i] * lig_vdwq[j]).sqrt();
+                        let vdw_r = rec_vdwr[i] + lig_vdwr[j];
+                        let p6 = vdw_r.powf(6.0) / d2.powf(3.0);
+                        let k = vdw_e * (p6*p6 - 2.0*p6);
+                        total_vdw += if k > VDW_CUTOFF { VDW_CUTOFF } else { k };
+                    }
+
                     if d2 <= INTERFACE_CUTOFF2 {
                         iface_r[i] = 1;
                         iface_l[j] = 1;
@@ -374,27 +494,34 @@ impl Score for CPYDOCK {
                 }
             }
 
-            // ── Desolvation ─────────────────────────────────────────────────
+            let total_elec_kcal = total_elec * FACTOR / EPSILON;
+
+            // ── Desolvation (C solvation loop, same order & clamps) ────────
+            let rec_asa = &self.receptor.asa;
+            let lig_asa = &self.ligand.asa;
+            let rec_des = &self.receptor.des_energy;
+            let lig_des = &self.ligand.des_energy;
+
             let mut total_solv = 0.0_f64;
             for i in 0..rec_n {
-                let asa = self.receptor.asa[i];
-                if asa > 0.0 && min_rec[i] <= SOLVATION_DISTANCE2 && min_rec[i] > 0.0 {
-                    let d = min_rec[i].sqrt();
-                    let solv = f64::min(-10.0 * d + 65.0, asa);
-                    total_solv += solv * self.receptor.des_energy[i];
+                let mut solv_rec = 0.0;
+                if min_rec[i] <= SOLVATION_DISTANCE2 && min_rec[i] > 0.0 && rec_asa[i] > 0.0 {
+                    solv_rec = -10.0 * min_rec[i].sqrt() + 65.0;
                 }
+                if solv_rec > rec_asa[i] { solv_rec = rec_asa[i]; }
+                total_solv += solv_rec * rec_des[i];
             }
             for j in 0..lig_n {
-                let asa = self.ligand.asa[j];
-                if asa > 0.0 && min_lig[j] <= SOLVATION_DISTANCE2 && min_lig[j] > 0.0 {
-                    let d = min_lig[j].sqrt();
-                    let solv = f64::min(-10.0 * d + 65.0, asa);
-                    total_solv += solv * self.ligand.des_energy[j];
+                let mut solv_lig = 0.0;
+                if min_lig[j] <= SOLVATION_DISTANCE2 && min_lig[j] > 0.0 && lig_asa[j] > 0.0 {
+                    solv_lig = -10.0 * min_lig[j].sqrt() + 65.0;
                 }
+                if solv_lig > lig_asa[j] { solv_lig = lig_asa[j]; }
+                total_solv += solv_lig * lig_des[j];
             }
 
             // score = (elec + 0.1×vdw - solv_rec - solv_lig) × -1
-            let score = (total_elec + VDW_WEIGHT * total_vdw - total_solv) * -1.0;
+            let score = (total_elec_kcal + VDW_WEIGHT * total_vdw - total_solv) * -1.0;
 
             let perc_r = satisfied_restraints(iface_r, &self.receptor.active_restraints);
             let perc_l = satisfied_restraints(iface_l, &self.ligand.active_restraints);

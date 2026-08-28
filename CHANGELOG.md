@@ -8,6 +8,55 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-08-29
+
+### Fixed (found during multi-scenario testing, 2026-08-29)
+
+- **[Fix 7] DFIRE2 panic on non-protein ligands** (`src/dfire2.rs`):
+  `score rec lig dfire2` panicked with `index out of bounds: the len is 0`
+  whenever the ligand contained no atoms in the DFIRE2 atom-type dictionary
+  (e.g. DNA ligands in 1AZP/1DIZ — DFIRE2 ships only the 20 standard amino
+  acids): the ligand residue-offset computation indexed `[0]` on an empty
+  vector. Now uses safe `match (last, first)` destructuring and degrades
+  gracefully (offset 0). Regression-verified: 1AZP dfire2 = -83.70, p53-DNA
+  full GSO run completes normally.
+
+- Carried (previously uncommitted) hardening from the BM5 equivalence work:
+  robust atom typing and ANM stride guards in `src/cpydock.rs`, `src/ddna.rs`,
+  `src/mj3h.rs`, `src/sd.rs`, `src/sipper.rs`, and PDB free-text metadata
+  tolerance in `src/bin/lightdock.rs` (Fixes 5–6 below).
+
+### Tested (multi-module / multi-scenario suite, 2026-08-29)
+
+- 12 scoring functions × 6 biological complexes (protein-DNA 1AZP/1DIZ p53-DNA,
+  protein-protein 2OOB, Ab-antigen 1VFB / Ab-peptide 1DQJ, viral-host 6M0J
+  RBD-hACE2): 78+ score combinations, no timeout, no panic.
+- Parameter sweep: runtime scales linearly with glowworms (25→400) and steps
+  (10→200); GSO converges by 50–70 steps; 100 steps is the practical default.
+- All 16 CLI subcommands exercised end-to-end (setup/run/rank/cluster/top/
+  generate/trajectory/map_contacts/diameter/gso_to_csv/reference_points/
+  pipeline/...).
+
+### Fixed (found during BM5 equivalence benchmarking)
+
+- **[Fix 5] PDB parsing of free-text metadata records** (`src/bin/lightdock.rs`):
+  `pdbtbx 0.11` raises an invalidating error on free-text metadata lines such as
+  `REMARK DATE:23-Dec-2018` (it attempts to parse them as `usize`), which made
+  LKlight crash on most real-world PDB files downloaded from the RCSB or produced
+  by `reduce`. `open_pdb_padded` now strips metadata records (REMARK/USER/HEADER/
+  TITLE/COMPND/SOURCE/KEYWDS/EXPDTA/AUTHOR/REVDAT/JRNL/FORMUL/HET) and retries the
+  parse before failing; atom coordinates are never modified.
+
+- **[Fix 6] Swarm starting positions too far from the receptor** (`src/bin/lightdock.rs`):
+  Initial ligand poses were placed on a sphere of `max_atom_radius + 10 Å`, which
+  for typical complexes put the ligand ~40–45 Å from the receptor centre — too far
+  for blind docking to converge (success rate 0 in BM5 tests). The sphere radius is
+  now `mean_atom_radius + swarm_radius` (default `swarm_radius` reduced 10 → 3 Å),
+  placing initial poses near the molecular surface, matching the official
+  LightDock reference-point convention (~15–25 Å). Use `--swarm-radius` to adjust.
+
+---
+
 ## [1.0.0] — 2025
 
 ### Critical Bug Fixes (relative to lightdock-rust baseline)

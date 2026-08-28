@@ -159,30 +159,54 @@ fn parse_gso_file(filename: &str) -> Vec<GSOEntry> {
 /// Open a PDB file tolerantly: pad every ATOM/HETATM line to ≥80 chars before
 /// parsing so that pdbtbx doesn't raise InvalidatingError for missing element
 /// symbol / charge columns (cols 77-80), which are optional in older PDB files.
+///
+/// pdbtbx 0.11 additionally fails on free-text metadata records such as
+/// "REMARK DATE:23-Dec-2018" (it tries to parse them as usize). On the first
+/// parse failure we strip metadata records (REMARK/USER/HEADER/TITLE/...) and
+/// retry; atom coordinates are never modified.
 fn open_pdb_padded(path: &str) -> pdbtbx::PDB {
     use std::io::Cursor;
     let raw = fs::read_to_string(path)
         .unwrap_or_else(|e| panic!("Cannot read {}: {}", path, e));
-    let padded: String = raw.lines().map(|line| {
-        let rec = &line[..line.len().min(6)];
-        if rec.starts_with("ATOM") || rec.starts_with("HETATM") {
-            if line.len() < 80 {
-                format!("{:<80}\n", line)   // pad with spaces on right
+
+    fn parse(raw: &str, path: &str) -> Option<pdbtbx::PDB> {
+        let padded: String = raw.lines().map(|line| {
+            let rec = &line[..line.len().min(6)];
+            if rec.starts_with("ATOM") || rec.starts_with("HETATM") {
+                if line.len() < 80 {
+                    format!("{:<80}\n", line)   // pad with spaces on right
+                } else {
+                    format!("{}\n", line)
+                }
             } else {
                 format!("{}\n", line)
             }
-        } else {
-            format!("{}\n", line)
-        }
-    }).collect();
-    let cursor = Cursor::new(padded.as_bytes().to_vec());
-    let reader = std::io::BufReader::new(cursor);
-    let (pdb, _errs) = pdbtbx::open_pdb_raw(
-        reader,
-        pdbtbx::Context::show(path),
-        pdbtbx::StrictnessLevel::Loose,
-    ).unwrap_or_else(|_errs| panic!("Failed to parse PDB: {}", path));
-    pdb
+        }).collect();
+        let cursor = Cursor::new(padded.as_bytes().to_vec());
+        let reader = std::io::BufReader::new(cursor);
+        pdbtbx::open_pdb_raw(reader, pdbtbx::Context::show(path),
+                             pdbtbx::StrictnessLevel::Loose)
+            .ok().map(|(pdb, _errs)| pdb)
+    }
+
+    if let Some(pdb) = parse(&raw, path) {
+        return pdb;
+    }
+    // pdbtbx 0.11 cannot parse free-text metadata lines; strip them and retry
+    let stripped: String = raw.lines().filter(|line| {
+        let rec = &line[..line.len().min(6)];
+        !(rec.starts_with("REMARK") || rec.starts_with("USER")
+          || rec.starts_with("HEADER") || rec.starts_with("TITLE")
+          || rec.starts_with("COMPND") || rec.starts_with("SOURCE")
+          || rec.starts_with("KEYWDS") || rec.starts_with("EXPDTA")
+          || rec.starts_with("AUTHOR") || rec.starts_with("REVDAT")
+          || rec.starts_with("JRNL") || rec.starts_with("FORMUL")
+          || rec.starts_with("HET"))
+    }).map(|l| format!("{}\n", l)).collect();
+    match parse(&stripped, path) {
+        Some(pdb) => pdb,
+        None => panic!("Failed to parse PDB: {}", path),
+    }
 }
 
 /// True if `atom` is a hydrogen (or deuterium).
@@ -326,7 +350,7 @@ fn cmd_setup(args: &[String]) {
     let lig_file = &args[1];
     let (mut swarms, mut glowworms, mut seed, mut use_anm, mut anm_rec, mut anm_lig,
          mut swarm_radius, mut noxt, mut noh, mut now) =
-        (400u32, 200u32, 324_324u64, false, 10usize, 10usize, 10.0_f64, false, false, false);
+        (400u32, 200u32, 324_324u64, false, 10usize, 10usize, 3.0_f64, false, false, false);
     let mut restraints_file: Option<String> = None;
     let mut anm_rec_rmsd = 0.5_f64;
     let mut anm_lig_rmsd = 0.5_f64;
@@ -364,6 +388,15 @@ fn cmd_setup(args: &[String]) {
         let mut mx = 0.0f64;
         for a in pdb.atoms() { let r=a.x()*a.x()+a.y()*a.y()+a.z()*a.z(); if r>mx{mx=r;} }
         mx.sqrt()
+    }
+    /// Mean atom distance from the (origin-centered) CoM. LightDock's reference
+    /// points sit near the molecular surface, which is far closer to the mean
+    /// radius than to the max radius; using `bound_r` puts initial poses ~max-r
+    /// away from the receptor, from which blind docking cannot converge.
+    fn avg_r(pdb: &PDB) -> f64 {
+        let mut s = 0.0f64; let mut n = 0usize;
+        for a in pdb.atoms() { s += (a.x()*a.x()+a.y()*a.y()+a.z()*a.z()).sqrt(); n += 1; }
+        if n == 0 { 10.0 } else { s / n as f64 }
     }
     fn translate(pdb: &mut PDB, c: &[f64;3]) {
         for a in pdb.atoms_mut() {
@@ -454,7 +487,10 @@ fn cmd_setup(args: &[String]) {
     }
 
     // ── Swarm positions ──────────────────────────────────────────────────────
-    let sphere_r = bound_r(&rec) + swarm_radius;
+    // Initial poses sit near the molecular surface: mean radius + small offset.
+    // (Formerly `bound_r` (max radius) + 10 Å, which placed the ligand too far
+    // from the receptor for blind docking to converge.)
+    let sphere_r = avg_r(&rec) + swarm_radius;
 
     // Build candidate pool: 5× more points than needed for biased selection
     let n_candidates = (swarms * 5).max(2000);

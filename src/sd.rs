@@ -79,8 +79,12 @@ impl SDDockingModel {
         let mut atom_index: u64 = 0;
         for chain in structure.chains() {
             for residue in chain.residues() {
-                let res_name = residue.name().unwrap_or("UNK");
-                let mut res_id = format!("{}.{}.{}", chain.id(), res_name, residue.serial_number());
+                let raw_res_name = residue.name().unwrap_or("UNK");
+                // Match the Python reference: SDAdapter maps HIS -> HID before
+                // looking up amber_types / charges ("HIS" itself never appears
+                // as a key in the amber table).
+                let res_name = if raw_res_name == "HIS" { "HID" } else { raw_res_name };
+                let mut res_id = format!("{}.{}.{}", chain.id(), raw_res_name, residue.serial_number());
                 if let Some(c) = residue.insertion_code() {
                     res_id.push_str(c);
                 }
@@ -282,29 +286,35 @@ impl Score for SD {
                     let cx = (x1 / CUTOFF).floor() as i32;
                     let cy = (y1 / CUTOFF).floor() as i32;
                     let cz = (z1 / CUTOFF).floor() as i32;
-                    let mut atom_vdw = 0.0f64;
-                    let mut ei = 0.0f64;
+                    // Bit-exactness with the Python reference requires processing
+                    // ligand atoms in ascending index order (floating-point
+                    // summation is order-dependent).
+                    let mut nb: Vec<usize> = Vec::new();
                     for dx in -1_i32..=1 {
                         for dy in -1_i32..=1 {
                             for dz in -1_i32..=1 {
                                 if let Some(js) = grid_ref.get(&(cx+dx, cy+dy, cz+dz)) {
-                                    for &j in js {
-                                        let la = &lig_slice[j];
-                                        let d2 = (x1-la[0]).powi(2) + (y1-la[1]).powi(2) + (z1-la[2]).powi(2);
-                                        if d2 < CUTOFF2 {
-                                            let atom_elec = rec_ele[i] * lig_ele[j] / d2 * FACTOR / EPSILON;
-                                            let vdw_e = rec_svdw[i] * lig_svdw[j];
-                                            let vdw_r = rec_vdwr[i] + lig_vdwr[j];
-                                            let p6 = vdw_r.powi(6) / d2.powi(3);
-                                            atom_vdw += vdw_e * (p6*p6 - 2.0*p6);
-                                            if atom_vdw > VDW_CUTOFF { atom_vdw = VDW_CUTOFF; }
-                                            let pair_e = atom_elec + atom_vdw;
-                                            if d2 < CUTON2 { ei += pair_e; }
-                                            else { ei += pair_e * switch_fn(d2); }
-                                        }
-                                    }
+                                    nb.extend_from_slice(js);
                                 }
                             }
+                        }
+                    }
+                    nb.sort_unstable();
+                    let mut atom_vdw = 0.0f64;
+                    let mut ei = 0.0f64;
+                    for &j in &nb {
+                        let la = &lig_slice[j];
+                        let d2 = (x1-la[0]).powi(2) + (y1-la[1]).powi(2) + (z1-la[2]).powi(2);
+                        if d2 < CUTOFF2 {
+                            let atom_elec = rec_ele[i] * lig_ele[j] / d2 * FACTOR / EPSILON;
+                            let vdw_e = rec_svdw[i] * lig_svdw[j];
+                            let vdw_r = rec_vdwr[i] + lig_vdwr[j];
+                            let p6 = vdw_r.powi(6) / d2.powi(3);
+                            atom_vdw += vdw_e * (p6*p6 - 2.0*p6);
+                            if atom_vdw > VDW_CUTOFF { atom_vdw = VDW_CUTOFF; }
+                            let pair_e = atom_elec + atom_vdw;
+                            if d2 < CUTON2 { ei += pair_e; }
+                            else { ei += pair_e * switch_fn(d2); }
                         }
                     }
                     ei

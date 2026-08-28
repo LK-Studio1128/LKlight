@@ -82,6 +82,7 @@ lazy_static! {
 
 pub struct DFIRE2DockingModel {
     pub atom_indices: Vec<usize>,
+    pub residue_numbers: Vec<i32>,
     pub coordinates: Vec<[f64; 3]>,
     pub membrane: Vec<usize>,
     pub active_restraints: HashMap<String, Vec<usize>>,
@@ -100,6 +101,7 @@ impl DFIRE2DockingModel {
     ) -> DFIRE2DockingModel {
         let mut model = DFIRE2DockingModel {
             atom_indices: Vec::new(),
+            residue_numbers: Vec::new(),
             coordinates: Vec::new(),
             membrane: Vec::new(),
             active_restraints: HashMap::new(),
@@ -148,6 +150,7 @@ impl DFIRE2DockingModel {
                     }
 
                     model.atom_indices.push(dfire2_idx);
+                    model.residue_numbers.push(residue.serial_number() as i32);
                     model.coordinates.push([atom.x(), atom.y(), atom.z()]);
                     atom_index += 1;
                 }
@@ -262,39 +265,64 @@ impl Score for DFIRE2 {
                 }
             }
 
-            // ── Phase 1: parallel score (receptor outer, ligand inner) ───
+            // ── Phase 1: score on concatenated complex, full i<j double loop ──
+            // Faithful port of lightdock cdfire2.c: receptor atoms followed by
+            // ligand atoms in ONE array; every pair i<j is evaluated except
+            // pairs from the same residue (res_indexes[i] == res_indexes[j]).
+            // Ligand residue numbers are offset by the last receptor residue
+            // number so cross-molecule same-numbered residues are NOT excluded.
+            // Includes intra-molecular contributions, which are rigid-motion
+            // invariant — this fixes the constant ~169 offset vs. the Python
+            // reference.
             let rec_idx = &self.receptor.atom_indices;
             let lig_idx = &self.ligand.atom_indices;
-            let lig_slice: &[[f64; 3]] = lig_c.as_slice();
-            let lig_n_atoms = lig_slice.len();
+            let rec_res = &self.receptor.residue_numbers;
+            let lig_res_offset = match (rec_res.last(), self.ligand.residue_numbers.first()) {
+                (Some(&last), Some(&first)) => last - first,
+                _ => 0,
+            };
+            let mut res_all: Vec<i32> = Vec::with_capacity(rec_n + lig_n);
+            res_all.extend_from_slice(rec_res);
+            for r in self.ligand.residue_numbers.iter() {
+                res_all.push(r + lig_res_offset);
+            }
 
-            let score_raw: f64 = rec_c.iter().enumerate()
-                .map(|(i, ra)| {
-                    let rx = ra[0]; let ry = ra[1]; let rz = ra[2];
-                    let atom_a = rec_idx[i];
-                    let mut s = 0.0f64;
-                    for j in 0..lig_n_atoms {
-                        let la = &lig_slice[j];
-                        let dx = rx - la[0]; let dy = ry - la[1]; let dz = rz - la[2];
-                        let dist2 = dx*dx + dy*dy + dz*dz;
-                        if dist2 <= MAX_DIST_SQ {
-                            let dist = dist2.sqrt();
-                            let bin = (dist * 2.0) as usize;
-                            if bin < DIST_BINS {
-                                let atom_b = lig_idx[j];
-                                s += potential[atom_a * ATOM_TYPES * DIST_BINS + atom_b * DIST_BINS + bin];
-                            }
+            let mut coords: Vec<[f64; 3]> = Vec::with_capacity(rec_n + lig_n);
+            coords.extend_from_slice(rec_c.as_slice());
+            coords.extend_from_slice(lig_c.as_slice());
+            let idx_all: Vec<usize> = rec_idx.iter().chain(lig_idx.iter()).copied().collect();
+
+            let n_atoms = coords.len();
+            let mut score_raw = 0.0f64;
+            for i in 0..n_atoms {
+                let ri = &coords[i];
+                let atom_a = idx_all[i];
+                let res_i = res_all[i];
+                for j in (i + 1)..n_atoms {
+                    if res_i == res_all[j] {
+                        continue;
+                    }
+                    let lj = &coords[j];
+                    let dx = ri[0] - lj[0];
+                    let dy = ri[1] - lj[1];
+                    let dz = ri[2] - lj[2];
+                    let dist2 = dx * dx + dy * dy + dz * dz;
+                    if dist2 <= MAX_DIST_SQ {
+                        let dist = dist2.sqrt();
+                        let bin = (dist * 2.0) as usize;
+                        if bin < DIST_BINS {
+                            score_raw += potential
+                                [atom_a * ATOM_TYPES * DIST_BINS + idx_all[j] * DIST_BINS + bin];
                         }
                     }
-                    s
-                })
-                .sum();
+                }
+            }
 
             let score = score_raw / 100.0;
 
             // ── Phase 2: interface flags (sequential, INTERFACE_CUTOFF=3.9Å) ──
             for (i, ra) in rec_c.iter().enumerate() {
-                for (j, la) in lig_slice.iter().enumerate() {
+                for (j, la) in lig_c.iter().enumerate() {
                     let dx = ra[0]-la[0]; let dy = ra[1]-la[1]; let dz = ra[2]-la[2];
                     if dx*dx + dy*dy + dz*dz <= INTERFACE_CUTOFF2 {
                         iface_r[i] = 1;

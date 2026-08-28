@@ -52,9 +52,12 @@ fn res_to_idx(name: &str) -> Option<usize> {
     }
 }
 
-// Backbone atom names to EXCLUDE from side-chain centroid
-fn is_backbone(name: &str) -> bool {
-    matches!(name, "N" | "CA" | "C" | "O" | "H" | "HA" | "HN" | "OXT")
+// Atoms EXCLUDED from side-chain centroid.
+// Faithful port of the Python reference (mj3h/driver.py):
+//   not_considered_atoms = ["O", "C", "N", "H"]  (exact name match)
+// Note CA *participates* in the centroid; only these four names are skipped.
+fn is_excluded(name: &str) -> bool {
+    matches!(name, "O" | "C" | "N" | "H")
 }
 
 pub struct MJ3hDockingModel {
@@ -92,24 +95,15 @@ impl MJ3hDockingModel {
                     None => continue,  // skip non-standard residues
                 };
 
-                // Collect sidechain heavy atom coordinates
-                let sidechain_atoms: Vec<[f64; 3]> = residue
+                // Collect centroid-contributing atoms (exact-name exclusion of O/C/N/H)
+                let contributing: Vec<[f64; 3]> = residue
                     .atoms()
-                    .filter(|a| !is_backbone(a.name()))
+                    .filter(|a| !is_excluded(a.name()))
                     .map(|a| [a.x(), a.y(), a.z()])
                     .collect();
 
-                // For GLY: CA acts as pseudo-sidechain centroid (include CA)
-                // If no sidechain atoms found, use CA as fallback
-                let atoms = if sidechain_atoms.is_empty() {
-                    residue
-                        .atoms()
-                        .filter(|a| a.name() == "CA")
-                        .map(|a| [a.x(), a.y(), a.z()])
-                        .collect::<Vec<_>>()
-                } else {
-                    sidechain_atoms
-                };
+                // Python: if count == 0 the residue contributes nothing and is removed
+                let atoms = contributing;
 
                 if atoms.is_empty() {
                     continue;  // skip if no usable atoms at all

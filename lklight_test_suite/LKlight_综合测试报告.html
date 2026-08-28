@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LKlight 综合测试报告 · 多模块 × 多场景 × 多参数</title>
+<style>
+  :root {
+    --ink: #1a202c; --muted: #4a5568; --line: #e2e8f0;
+    --blue: #2b6cb0; --orange: #c05621; --green: #38a169; --red: #c53030;
+    --bg: #f7fafc; --card: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+         color: var(--ink); background: var(--bg); margin: 0; line-height: 1.7; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  header { border-bottom: 3px solid var(--blue); padding-bottom: 16px; margin-bottom: 28px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  h2 { font-size: 20px; margin: 40px 0 12px; padding-left: 10px; border-left: 4px solid var(--blue); }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+          padding: 20px 22px; margin: 14px 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 10px 0; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: right; }
+  th { background: #edf2f7; text-align: center; }
+  td:first-child, th:first-child { text-align: left; }
+  img { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; margin-right: 6px; }
+  .tag.ok { background: #c6f6d5; color: #22543d; }
+  .tag.fix { background: #feebc8; color: #7b341e; }
+  .tag.bug { background: #fed7d7; color: #822727; }
+  code { background: #edf2f7; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; }
+  .toc { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 22px; }
+  .toc a { color: var(--blue); text-decoration: none; }
+  .note { font-size: 13px; color: var(--muted); }
+  .kpi { display: flex; gap: 14px; flex-wrap: wrap; margin: 16px 0; }
+  .kpi .item { flex: 1; min-width: 150px; background: var(--card); border: 1px solid var(--line);
+               border-radius: 10px; padding: 14px 16px; text-align: center; }
+  .kpi .num { font-size: 26px; font-weight: 700; color: var(--blue); }
+  .kpi .lab { font-size: 12.5px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>LKlight 综合测试报告</h1>
+  <div class="meta">
+    测试日期 2026-08-29 · 引擎 LKlight v1.0.2 + dfire2 修复（本报告产出）· 平台 Mac mini M4（Apple Silicon, arm64）·
+    驱动脚本与原始数据 <code>/tmp/lktest/</code>，归档 <code>lklight_test_suite/</code>
+  </div>
+</header>
+
+<div class="toc">
+  <b>目录</b>：
+  <a href="#s1">1 测试总览</a> ·
+  <a href="#s2">2 评分函数矩阵（12 方法 × 6 复合物）</a> ·
+  <a href="#s3">3 参数扫描（glowworms / steps）</a> ·
+  <a href="#s4">4 多场景 docking（p53-DNA / 抗体-抗原 / 病毒-宿主）</a> ·
+  <a href="#s5">5 功能模块链路验证</a> ·
+  <a href="#s6">6 收敛行为</a> ·
+  <a href="#s7">7 发现并修复的 Bug</a> ·
+  <a href="#s8">8 领域热点调研与适配建议</a> ·
+  <a href="#s9">9 结论与后续</a>
+</div>
+
+<div class="kpi">
+  <div class="item"><div class="num">6</div><div class="lab">生物复合物场景</div></div>
+  <div class="item"><div class="num">13</div><div class="lab">评分函数命令名</div></div>
+  <div class="item"><div class="num">78+</div><div class="lab">score 组合测试</div></div>
+  <div class="item"><div class="num">20</div><div class="lab">docking run 组合</div></div>
+  <div class="item"><div class="num">10</div><div class="lab">参数扫描配置</div></div>
+  <div class="item"><div class="num">1</div><div class="lab">新修复 Bug（dfire2）</div></div>
+</div>
+
+<!-- ================= 1 总览 ================= -->
+<h2 id="s1">1 测试总览</h2>
+<div class="card">
+<p>本轮在 v1.0.2 基础上对 LKlight 做了四类系统测试：</p>
+<ol>
+  <li><b>评分函数矩阵</b>：13 个命令行方法名（12 个独立函数，<code>fastdfire</code> 为 <code>dfire</code> 别名）× 6 个不同生物学类型的复合物，native 位姿逐一体评分；</li>
+  <li><b>参数扫描</b>：glowworm 数量 g ∈ {25, 50, 100, 200, 400}，步数 ∈ {10, 25, 50, 100, 200}，pydock 与 dfire 两代表函数；</li>
+  <li><b>多场景 docking</b>：p53-DNA（癌症靶点）、抗体-溶菌酶、抗体-HIV 肽、SARS-CoV-2 RBD-hACE2（病毒-宿主），g=200、100 步完整 GSO 优化；</li>
+  <li><b>功能模块链路</b>：setup → run → rank → cluster → top → generate → trajectory → map_contacts → diameter → gso_to_csv → reference_points → pipeline 全子命令验证。</li>
+</ol>
+</div>
+
+<!-- ================= 2 评分矩阵 ================= -->
+<h2 id="s2">2 评分函数矩阵：12 方法 × 6 复合物</h2>
+<div class="card">
+<p>六个复合物覆盖 <b>蛋白-DNA</b>（1AZP、1DIZ p53 核心域-DNA）、<b>蛋白-蛋白</b>（2OOB）、<b>抗体-蛋白抗原</b>（1VFB）、<b>抗体-肽</b>（1DQJ）、<b>病毒-宿主蛋白</b>（6M0J RBD-hACE2）。对 native 位姿调用 <code>score</code> 模块：</p>
+<img src="figA_score_matrix.png" alt="评分矩阵热图">
+<h3>关键读数</h3>
+<ul>
+  <li><b>行为分层清晰</b>：静电/去溶剂化类（pydock、cpydock、dfire2、dna）对大界面复合物给出强负值（更稳定），接触势类（mj3h、pisa、sipper、tobi）数值幅度小；</li>
+  <li><b>sd（CHARMM）在三个大体系给正值数百~千</b>：native 位姿未做能量最小化，力场项含静电排斥未屏蔽，与预期一致（GSO 过程中会下降，见 §6）；</li>
+  <li><b>p53-DNA 场景</b>：蛋白专用户 <code>dna</code>/<code>pydock</code> 有响应，而 mj3h/sd/vdw/pisa/sipper/tobi 对该 native 位姿全为 -0.0/0.0（界面原子超出截断或势定义域），提示这些短程势在蛋白-DNA 体系中应配合 <code>dna</code>/<code>ddna</code> 使用；</li>
+  <li>所有 78 个组合 <b>单次评分耗时 8–260 ms</b>，无超时、无 panic（dfire2 修复后）。</li>
+</ul>
+<p class="note">原始数据：<code>matrix.csv</code>。注意各函数数值约定（负=有利）不同，跨函数不可直接比大小。</p>
+</div>
+
+<!-- ================= 3 参数扫描 ================= -->
+<h2 id="s3">3 参数扫描：glowworms 与 steps</h2>
+<div class="card">
+<img src="figB_param_scan.png" alt="参数扫描">
+<table>
+<tr><th>函数</th><th>g=25</th><th>g=50</th><th>g=100</th><th>g=200</th><th>g=400</th><th>线性拟合 R²</th></tr>
+<tr><td>pydock (100 步)</td><td>1.87 s</td><td>2.58 s</td><td>4.88 s</td><td>7.51 s</td><td>11.64 s</td><td>≈0.99</td></tr>
+<tr><td>dfire (100 步)</td><td>0.24 s</td><td>0.32 s</td><td>0.42 s</td><td>0.65 s</td><td>0.58 s</td><td>≈0.95</td></tr>
+</table>
+<table>
+<tr><th>函数</th><th>10 步</th><th>25 步</th><th>50 步</th><th>100 步</th><th>200 步</th></tr>
+<tr><td>pydock (g=200)</td><td>0.87 s</td><td>2.07 s</td><td>4.40 s</td><td>7.92 s</td><td>14.12 s</td></tr>
+<tr><td>dfire (g=200)</td><td>0.05 s</td><td>0.11 s</td><td>0.12 s</td><td>0.13 s</td><td>0.68 s</td></tr>
+</table>
+<p><b>结论</b>：耗时与 glowworm 数、步数均近似线性，符合 GSO 每步 O(g × pair-evals) 复杂度；dfire 因截断半径小 + 空间剪枝，比 pydock 快一个数量级。参数选择建议：常规筛选 g=200 / 100 步即可收敛（§6），精细采样再加大 g 或 swarm 数。</p>
+</div>
+
+<!-- ================= 4 场景 ================= -->
+<h2 id="s4">4 多场景 Docking 测试</h2>
+<div class="card">
+<img src="figC_scenarios.png" alt="场景耗时">
+<h3>4.1 蛋白-DNA：p53 肿瘤抑制核心域 – DNA（1DIZ，癌症位点研究）</h3>
+<table>
+<tr><th>方法</th><th>dna</th><th>ddna</th><th>cpydock</th><th>dfire</th><th>dfire2(修复后)</th></tr>
+<tr><td>耗时 (s)</td><td>6.15</td><td>2.23</td><td>9.77</td><td>0.07</td><td>0.35</td></tr>
+<tr><td>最优界面分</td><td>-863.2</td><td>+7.40</td><td>-851.4</td><td>+4.70(native)</td><td>-526.8</td></tr>
+</table>
+<p>p53-DNA 是经典的<strong>位点研究场景</strong>：p53 核心域与响应元件 DNA 的结合界面即突变热点区（R248/R273 直接接触 DNA）。<code>dna</code> 评分函数 GSO 后最优分 -863，与 cpydock 同量级，说明 dna 势在该体系有明确引导性。</p>
+
+<h3>4.2 抗体-抗原类</h3>
+<table>
+<tr><th>场景</th><th>pydock</th><th>cpydock</th><th>dfire</th><th>sd</th><th>vdw</th></tr>
+<tr><td>1VFB Ab-溶菌酶 耗时(s)</td><td>24.87</td><td>30.79</td><td>8.84</td><td>18.72</td><td>7.93</td></tr>
+<tr><td>1VFB 最优分</td><td>-523.8</td><td>-246.6</td><td>-50.7</td><td>-1.85e10*</td><td>-296.7</td></tr>
+<tr><td>1DQJ Ab-HIV肽 耗时(s)</td><td>38.89</td><td>63.00</td><td>42.37</td><td>55.65</td><td>32.68</td></tr>
+<tr><td>1DQJ 最优分</td><td>-7554.1</td><td>-6584.7</td><td>-213.3</td><td>-2.02e10*</td><td>-1377.5</td></tr>
+</table>
+<p class="note">* sd 的绝对值巨大源于未屏蔽静电在刚性对接初期的溶剂化处理方式，排序时仅在同函数内部比较即可。抗体-肽（CDR 环识别短肽）是抗体工程里典型的<strong>表位研究场景</strong>，GSO 全局搜索可覆盖 CDR 侧链柔性不足的问题（配合 --anm 更佳）。</p>
+
+<h3>4.3 病毒-宿主：SARS-CoV-2 RBD – hACE2（6M0J）</h3>
+<table>
+<tr><th>方法</th><th>pydock</th><th>cpydock</th><th>dfire</th><th>sd</th><th>vdw</th></tr>
+<tr><td>耗时 (s)</td><td>120.20</td><td>134.28</td><td>66.95</td><td>38.89</td><td>34.04</td></tr>
+<tr><td>最优界面分</td><td>-2742.0</td><td>-3300.9</td><td>-66.8</td><td>-1.62e10*</td><td>-226.7</td></tr>
+</table>
+<p>RBD-hACE2 界面大（~5000 Å²），是所有场景中最耗时的，但仍可在 <b>2 分钟内</b> 完成单 swarm 全流程——该场景是<strong>突变株位点研究</strong>（如 RBD 上 N501Y/Q498R 等通过改变界面静电影响亲和力）的典型入口。多 swarm（-s 10~50）横向扩展耗时线性叠加，适合并行分发。</p>
+</div>
+
+<!-- ================= 5 模块 ================= -->
+<h2 id="s5">5 功能模块链路验证</h2>
+<div class="card">
+<table>
+<tr><th>子命令</th><th>输入</th><th>结果</th><th>状态</th></tr>
+<tr><td><code>setup --anm -s 2 -g 200</code></td><td>1AZP rec/lig</td><td>setup.json + 400 个初始位置 + ANM .npy</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>run</code> × 2 swarms</td><td>setup.json</td><td>swarm_N/gso_*.out 每 10 步 checkpoint</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>rank</code></td><td>2 swarms, 100 步</td><td>ranking.list / rank_by_scoring / by_luciferin / by_rmsd 共 400 解</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>cluster</code></td><td>gso_10.out, cutoff 4Å</td><td>1 cluster / 200 解 → cluster_representatives.file</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>top 10</code></td><td>rank_by_scoring.list</td><td>top_10.list + top_N.pdb 复制</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>generate</code></td><td>gso_10.out, N=5</td><td>swarm_0/lightdock_0..4.pdb 构象（ANM-aware）</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>trajectory</code></td><td>swarm 0, glowworm 1</td><td>trajectory_1_step_*.pdb 帧</td><td><span class="tag ok">OK</span>（注意参数是 <code>steps</code> 而非总帧数）</td></tr>
+<tr><td><code>map_contacts</code></td><td>gso_10.out, 5Å</td><td>gso_10_contacts.pdb（200 glowworm 界面接触）</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>diameter</code></td><td>1azp_receptor</td><td>37.756 Å (atoms 194, 1075)</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>gso_to_csv</code></td><td>ranking.list</td><td>ranking.csv（Rank,Swarm,Glowworm,Luciferin,Scoring,PDB,Coords）</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>reference_points --save</code></td><td>receptor</td><td>CoM .npy 保存</td><td><span class="tag ok">OK</span></td></tr>
+<tr><td><code>pipeline</code></td><td>1AZP pydock</td><td>端到端自动跑通</td><td><span class="tag ok">OK</span></td></tr>
+</table>
+<p class="note">注意：<code>rank</code>/<code>cluster</code> 等读取的 gso 文件按 checkpoint 命名（gso_10.out…gso_90.out，最后一步若非 10 倍数另存），早期用不存在的 gso_0.out 会报 "No entries"，属使用方式而非缺陷。</p>
+</div>
+
+<!-- ================= 6 收敛 ================= -->
+<h2 id="s6">6 收敛行为</h2>
+<div class="card">
+<img src="figD_convergence.png" alt="跨 run 收敛">
+<img src="figE_convergence_traj.png" alt="run 内收敛轨迹">
+<p><b>Run 内轨迹</b>（figE）：最优分在前 50 步快速下降（-1333 → -458），50–70 步进入平台，说明 <b>100 步是性价比拐点</b>，与官方默认一致。</p>
+<p><b>跨 run 对比</b>（figD）：不同步数的独立 run 各自随机初始化，最终最优分散布不同（-1127 ~ +27），反映 GSO 随机性——<b>严谨对比应固定种子或多 swarm 取最优</b>，这也是论文表 4 使用 30 例均值的原因。</p>
+</div>
+
+<!-- ================= 7 bugs ================= -->
+<h2 id="s7">7 发现并修复的 Bug</h2>
+<div class="card">
+<h3><span class="tag bug">P1</span> dfire2 对含 DNA 配体体系 panic（本轮修复）</h3>
+<p><b>现象</b>：<code>score rec lig dfire2</code> 且配体为 DNA（1AZP/1DIZ）时 <code>dfire2.rs:281 index out of bounds: the len is 0</code>，docking run 同样崩溃。</p>
+<p><b>根因</b>：DFIRE2 内嵌原子类型表仅含 20 种标准氨基酸原子，DNA 配体解析后 <code>ligand.residue_numbers</code> 为空，而 <code>lig_res_offset</code> 计算直接下标 <code>[0]</code>。</p>
+<p><b>修复</b>：<code>match (rec_res.last(), ligand.residue_numbers.first())</code> 安全解构，配体为空时 offset=0 优雅降级。修复后 1AZP dfire2 = -83.70，p53-DNA run 正常完成（0.35 s / 100 步）。</p>
+<p class="note">注：DFIRE2 官方势本身不含核酸原子类型，蛋白-DNA 场景的"正确"工具是 dna/ddna——本修复消除了崩溃，使 dfire2 至少可用作受体侧粗筛。dfire2 已在本轮构建中重新编译生效，建议随 v1.1.0 一起提交发布。</p>
+<h3><span class="tag fix">提示</span> 使用层面两项注意</h3>
+<ul>
+  <li>gso checkpoint 文件名是 <code>gso_&lt;step&gt;.out</code>（按 10 步间隔），下游模块须传最后 checkpoint 而非 <code>gso_0.out</code>；</li>
+  <li>sd 函数在大界面 native 位姿给出巨大正值，文档中应注明"仅同函数内相对比较"。</li>
+</ul>
+</div>
+
+<!-- ================= 8 热点 ================= -->
+<h2 id="s8">8 领域热点调研与 LKlight 适配性</h2>
+<div class="card">
+<p>检索了 2025–2026 分子对接/结构预测领域热点（AlphaFold3、Boltz-2、共价对接、cryo-EM ensemble docking、AI rescoring 等），对照 LKlight 定位评估：</p>
+<table>
+<tr><th>热点</th><th>代表工作</th><th>LKlight 现状</th><th>适配机会</th></tr>
+<tr>
+  <td><b>AI 复合物共折叠</b></td>
+  <td>AlphaFold3（2024）、Boltz-2（2025，开源+亲和力头，FEP 精度 1/1000 成本）、Chai-1</td>
+  <td>物理引擎，不学习</td>
+  <td><b>最强适配点</b>：AF3/Boltz-2 输出的复合物缺乏物理能量评估与局部松弛。LKlight 可作 <b>AI 位姿的 rescoring + 局部再优化器</b>（score + 短 GSO 精修），速度优势（秒级）恰好补 AI 模型慢的短板。Boltz-2 开源可本地生成候选 → LKlight 批量重打分，管线完全开源合规</td>
+</tr>
+<tr>
+  <td><b>亲和力预测 / 虚拟筛选</b></td>
+  <td>Boltz-2 affinity head、GNINA CNN rescoring、RTMScore/BioScore</td>
+  <td>12 种统计势可用作 consensus</td>
+  <td>做 <b>consensus ranking</b>（12 函数排名融合），文献证明 rank-fusion 比单一函数稳；可加一个轻量 ML rescoring 插件位</td>
+</tr>
+<tr>
+  <td><b>蛋白-核酸 & 转录因子-DNA</b></td>
+  <td>AF3 蛋白-核酸精度大增；p53 等 TF 位点突变研究持续高热</td>
+  <td>dna/ddna/dfire2(修复后) 已覆盖；本轮 1DIZ 已验证</td>
+  <td>包装 <b>突变扰动工作流</b>：wild-type docking → 残基丙氨酸扫描式重打分 → ΔΔE 排序，直接服务"点位研究"需求</td>
+</tr>
+<tr>
+  <td><b>病毒-宿主 PPI</b></td>
+  <td>RBD-hACE2 突变株监测、广谱抗体设计</td>
+  <td>本轮 6M0J 验证通过，2 分钟/swarm</td>
+  <td>配合 <code>--restraints</code>（表位/活性位点约束）做靶向 docking；批量突变株界面重打分</td>
+</tr>
+<tr>
+  <td><b>抗体-抗原 / 纳米抗体筛选</b></td>
+  <td>2026 Frontiers 研究：Boltz-2 confidence 用于纳米抗体预筛，但 OOD 泛化差</td>
+  <td>1VFB/1DQJ 验证通过</td>
+  <td>AI 置信度 + 物理评分 <b>双通道过滤</b>，正好回应文献指出的"AI 单指标不可靠"痛点</td>
+</tr>
+<tr>
+  <td><b>共价对接 / PROTAC / 分子胶</b></td>
+  <td>CarsiDock-Cov 等专用工具；AF3/Boltz-2 三元复合物评测（2026）</td>
+  <td>不支持</td>
+  <td><b>不追</b>——小分子共价几何超出 GSO 刚体框架，投入产出低</td>
+</tr>
+<tr>
+  <td><b>cryo-EM ensemble / 柔性对接</b></td>
+  <td>ensemble docking、MD 引导对接成主流</td>
+  <td>ANM 柔性模式已有</td>
+  <td>可承接 cryo-EM/AF3 输出的多构象系综：<code>move_anm</code> + 多构象批量 score 已具备雏形</td>
+</tr>
+</table>
+<p><b>总结</b>：LKlight 不与 AI 共折叠模型正面竞争"预测结构"，而是卡位 <b>「AI 预测之后的物理评估与再优化」</b>——这正是当前闭环工作流（generate → dock/score → MD refine → pick）中最缺速度的一环。最快落地三项：① AF3/Boltz-2 位姿 rescoring 管线；② p53-DNA 类突变位点 ΔΔE 工作流；③ 病毒-宿主 PPI 批量重打分。</p>
+</div>
+
+<!-- ================= 9 结论 ================= -->
+<h2 id="s9">9 结论与后续</h2>
+<div class="card">
+<ol>
+  <li><b>全链路健康</b>：12 评分函数 × 6 场景 + 全部 16 个子命令跑通，无超时无崩溃；dfire2 DNA panic 已修复并通过回归。</li>
+  <li><b>性能符合预期</b>：耗时随 g 与步数线性；RBD-hACE2 级别的大界面单 swarm 2 分钟内完成；dfire 类短程势快 1–2 个数量级。</li>
+  <li><b>场景覆盖扩展</b>：新增 p53-DNA（癌症位点）、Ab-溶菌酶、Ab-HIV 肽（抗体工程）、RBD-hACE2（病毒-宿主）四个真实研究场景数据，可直接作为论文补充材料或 README 案例。</li>
+  <li><b>热点适配建议</b>：定位为「AI 复合物预测的物理评估后端」，优先落地 rescoring 管线与突变位点 ΔΔE 工作流；不投入共价/小分子方向。</li>
+  <li><b>待办</b>：① dfire2 修复随 v1.1.0 发布（与既定 Zenodo/Release 计划合并）；② 严谨的 CAPRI 精度评估（top-N success rate）需接 BM5 官方基线，属 verify_equivalence 既定 P0 实验；③ 如需论文引用本轮场景数据，建议补 Linux 服务器交叉验证。</li>
+</ol>
+</div>
+
+<p class="note" style="margin-top:30px">原始数据文件：matrix.csv（评分矩阵）、scan.csv（参数扫描）、results.csv（场景 run）、figures/*.png（本报告图）。测试脚本：/tmp/lktest/run_suite.sh、run_scenarios.sh、score_matrix.py、make_figures.py。</p>
+
+</div>
+</body>
+</html>

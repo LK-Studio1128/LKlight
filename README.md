@@ -1,8 +1,9 @@
-# LKlight v1.0
+# LKlight v1.1.0
 
 [![CI](https://github.com/LK-Studio1128/LKlight/actions/workflows/rust.yml/badge.svg)](https://github.com/LK-Studio1128/LKlight/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://rustup.rs)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22150512.svg)](https://doi.org/10.5281/zenodo.22150512)
 
 **LKlight** 是 [LightDock](https://lightdock.org) 分子对接引擎的高性能 Rust 再实现（GPL-3.0 衍生作品）。本项目基于 LightDock 的 GSO（Glowworm Swarm Optimization）分子对接思想和上游 [`lightdock-rust`](https://github.com/lightdock/lightdock-rust) Rust 基线继续开发，目标是在保留 LightDock 方法体系与可复现性的前提下，提供更快、更稳定、更易分发的单文件命令行引擎。
 

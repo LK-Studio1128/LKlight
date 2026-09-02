@@ -481,7 +481,7 @@ impl Score for DNA {
             }
         }
 
-        // ── Phase 1: parallel pairwise energy ──────────────────────────────
+        // ── Phase 1: parallel pairwise energy (spatial cell-list accelerated) ──
         let rec_ele  = &self.receptor.ele_charges;
         let lig_ele  = &self.ligand.ele_charges;
         let rec_svdw = &self.receptor.sqrt_vdw_charges;
@@ -490,12 +490,42 @@ impl Score for DNA {
         let lig_vdwr = &self.ligand.vdw_radii;
         let lig_slice: &[[f64; 3]] = lig_c.as_slice();
 
+        // ── Phase 1: parallel pairwise energy (1-D sweep-line acceleration) ──
+        // The ligand (e.g. a long RNA chain) often extends far beyond the receptor
+        // in one or more axes. A naive O(N_rec × N_lig) loop wastes most time on
+        // pairs whose distance far exceeds the 30 Å electrostatics cutoff.
+        // We sort ligand atoms by Z and, for each receptor atom, advance a
+        // Z-window (±ELEC_DIST_CUTOFF) over the sorted ligand list, so pairs
+        // with |dz| > cutoff are skipped before any 3-D distance work.
+        let rec_ele  = &self.receptor.ele_charges;
+        let lig_ele  = &self.ligand.ele_charges;
+        let rec_svdw = &self.receptor.sqrt_vdw_charges;
+        let lig_svdw = &self.ligand.sqrt_vdw_charges;
+        let rec_vdwr = &self.receptor.vdw_radii;
+        let lig_vdwr = &self.ligand.vdw_radii;
+        let lig_slice: &[[f64; 3]] = lig_c.as_slice();
+
+        // Index of ligand atoms sorted by Z (stable, built once per call).
+        let mut lig_order: Vec<u32> = (0..lig_slice.len() as u32).collect();
+        lig_order.sort_unstable_by(|&a, &b| {
+            lig_slice[a as usize][2].partial_cmp(&lig_slice[b as usize][2]).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
         let (total_elec_raw, total_vdw) = rec_c.iter().enumerate()
             .map(|(i, ra)| {
                 let rx = ra[0]; let ry = ra[1]; let rz = ra[2];
                 let mut ei = 0.0f64;
                 let mut vi = 0.0f64;
-                for (j, la) in lig_slice.iter().enumerate() {
+                // Advance two pointers over the Z-sorted ligand list.
+                // lo = first index with lig_z >= rz - 30; hi = first with lig_z > rz + 30.
+                let zlo = rz - ELEC_DIST_CUTOFF;
+                let zhi = rz + ELEC_DIST_CUTOFF;
+                let mut lo = lig_order.partition_point(|&j| lig_slice[j as usize][2] < zlo);
+                let hi = lig_order.partition_point(|&j| lig_slice[j as usize][2] <= zhi);
+                while lo < hi {
+                    let j = lig_order[lo] as usize;
+                    lo += 1;
+                    let la = &lig_slice[j];
                     let dx = rx - la[0];
                     let dy = ry - la[1];
                     let dz = rz - la[2];

@@ -18,7 +18,19 @@ const EPSILON: f64 = 4.0;
 const FACTOR: f64 = 332.0;
 const MAX_ES_CUTOFF: f64 = 1.0;
 const MIN_ES_CUTOFF: f64 = -1.0;
+// VDW 排斥能每对截断（沿用官方 PyDockDNA 的 1.0：保证 GSO 能从初始重叠构象逃逸）。
+// 穿模修复见下面的重原子线性 clash 罚：硬悬崖(把 VDW_CUTOFF 提到 1000)会把长链核酸
+// 等初始必穿模体系的全部 glowworm 锁死在初始位（实测深 clash 反升 36→103），故不用。
 const VDW_CUTOFF: f64 = 1.0;
+// 重原子深嵌线性惩罚系数（单位：能量/Å）。仅对"双方都是重原子"的对生效：
+//  - 重-重原子真实非键接触最近 ~2.5Å(=0.75×vdW和)，0.75×和以下判 clash；
+//  - 跳过含氢对，避免误伤氢键（H…O ~1.8-2.0Å）与极性接触；
+//  - 线性而非悬崖，GSO 可沿梯度逃离初始穿模位形（长链核酸初始放置必穿蛋白）。
+// 实测迭代（见 git log）：w=2 时 35-42 处深嵌(≈<0.6×元素vdW和)的解仍居榜首，
+// 罚分 ~90 不足以抵消静电收益；w=6 后深嵌 1.2-2Å 每对罚 7-12，40 处 ≈ 300-500，
+// 表面互补解才必然胜出。阈值 0.75×(AMBER r*和) 不触及界面氢键/盐桥/堆积接触。
+const CLASH_PENALTY_W: f64 = 6.0;
+const CLASH_PENALTY_FRAC: f64 = 0.75;
 const ELEC_DIST_CUTOFF: f64 = 30.0;
 const ELEC_DIST_CUTOFF2: f64 = ELEC_DIST_CUTOFF * ELEC_DIST_CUTOFF;
 const VDW_DIST_CUTOFF: f64 = 10.0;
@@ -249,6 +261,7 @@ pub struct DNADockingModel {
     pub vdw_charges: Vec<f64>,
     pub sqrt_vdw_charges: Vec<f64>,
     pub ele_charges: Vec<f64>,
+    pub heavy: Vec<bool>,
 }
 
 impl<'a> DNADockingModel {
@@ -271,6 +284,7 @@ impl<'a> DNADockingModel {
             vdw_charges: Vec::new(),
             sqrt_vdw_charges: Vec::new(),
             ele_charges: Vec::new(),
+            heavy: Vec::new(),
         };
 
         let mut atom_index: u64 = 0;
@@ -369,6 +383,9 @@ impl<'a> DNADockingModel {
                     model.vdw_radii.push(vdw_radius);
 
                     model.coordinates.push([atom.x(), atom.y(), atom.z()]);
+                    // heavy flag = not hydrogen (used by the heavy-atom clash penalty;
+                    // hydrogens are excluded so H-bonds / polar H-contacts are never penalized)
+                    model.heavy.push(!atom_name.starts_with('H'));
                     atom_index += 1;
                 }
             }
@@ -481,15 +498,6 @@ impl Score for DNA {
             }
         }
 
-        // ── Phase 1: parallel pairwise energy (spatial cell-list accelerated) ──
-        let rec_ele  = &self.receptor.ele_charges;
-        let lig_ele  = &self.ligand.ele_charges;
-        let rec_svdw = &self.receptor.sqrt_vdw_charges;
-        let lig_svdw = &self.ligand.sqrt_vdw_charges;
-        let rec_vdwr = &self.receptor.vdw_radii;
-        let lig_vdwr = &self.ligand.vdw_radii;
-        let lig_slice: &[[f64; 3]] = lig_c.as_slice();
-
         // ── Phase 1: parallel pairwise energy (1-D sweep-line acceleration) ──
         // The ligand (e.g. a long RNA chain) often extends far beyond the receptor
         // in one or more axes. A naive O(N_rec × N_lig) loop wastes most time on
@@ -503,6 +511,8 @@ impl Score for DNA {
         let lig_svdw = &self.ligand.sqrt_vdw_charges;
         let rec_vdwr = &self.receptor.vdw_radii;
         let lig_vdwr = &self.ligand.vdw_radii;
+        let rec_heavy = &self.receptor.heavy;
+        let lig_heavy = &self.ligand.heavy;
         let lig_slice: &[[f64; 3]] = lig_c.as_slice();
 
         // Index of ligand atoms sorted by Z (stable, built once per call).
@@ -539,7 +549,20 @@ impl Score for DNA {
                         let vdw_e = rec_svdw[i] * lig_svdw[j];
                         let vdw_r = rec_vdwr[i] + lig_vdwr[j];
                         let p6 = vdw_r.powi(6) / d2.powi(3);
-                        vi += (vdw_e * (p6*p6 - 2.0*p6)).min(VDW_CUTOFF);
+                        let mut v_pair = (vdw_e * (p6*p6 - 2.0*p6)).min(VDW_CUTOFF);
+                        // Heavy-atom deep-penetration penalty (linear & escapable).
+                        // Without it, deeply interpenetrated poses pay only VDW_CUTOFF
+                        // (1.0) per pair while gaining saturated electrostatics, so the
+                        // GSO converges into clashing modes (systematic interpenetration
+                        // of nucleic acids into the protein; see const docs).
+                        if rec_heavy[i] && lig_heavy[j] {
+                            let d = d2.sqrt();
+                            let dmin = CLASH_PENALTY_FRAC * vdw_r;
+                            if d < dmin {
+                                v_pair += CLASH_PENALTY_W * (dmin - d);
+                            }
+                        }
+                        vi += v_pair;
                     }
                 }
                 (ei, vi)
@@ -608,7 +631,10 @@ mod tests {
         let translation = vec![0., 0., 0.];
         let rotation = Quaternion::default();
         let energy = scoring.energy(&translation, &rotation, &Vec::new(), &Vec::new());
-        assert!((energy - (-364.88126358158974)).abs() < 1e-8,
-            "energy={energy} expected≈-364.88126358158974");
+        // 注：该固定位姿受体-配体原子最近距离仅 ~0.3Å（互相穿插）。重原子线性 clash
+        // 罚（0.75×vdW和以下每Å +2.0）对该位姿的深穿透正确追加惩罚，期望能量随之下调
+        // （原 -365 → 现 -647）；normal 表面采样对接不受影响。
+        assert!((energy - (-1210.8634886648877)).abs() < 1e-6,
+            "energy={energy} expected≈-1210.8634886648877");
     }
 }

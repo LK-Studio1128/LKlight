@@ -8,6 +8,36 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.0] — 2026-09-06
+
+### Changed
+
+- **DNA scoring speedup: 1-D Z-window pruning** (`src/dna*.rs`): the all-atom
+  pairwise scan for the `dna` / `ddna` families now prunes receptor atoms with
+  a 1-D Z-window along the (long) receptor axis, cutting the enumerated pair
+  set on long nucleic-acid ligands; Linux server rebuild measured as part of
+  the three-engine v1.2.0 release (static-pie binary).
+- Prebuilt binaries rebuilt on real machines for v1.2.0: Linux x86_64
+  (Ubuntu server, static-pie, rustc 1.98), macOS arm64, Windows x64.
+
+### Fixed
+
+- **Systematic interpenetration in DNA scoring — heavy-atom clash penalty**
+  (`src/dna*.rs`): poses that buried ligand atoms into receptor backbone
+  heavy atoms were not penalised, allowing deep clashes into the binding site;
+  a clash penalty term now corrects the systematic interpenetration found in
+  the clash-fix campaign. Fixed binaries shipped in the 2026-09-02 resync.
+
+### Added
+
+- **Clash / contact auditing tools**: `map_contacts` and related auditing
+  subcommands for docking poses (top-pose clash/penetration inspection used in
+  the multi-scenario acceptance campaign).
+- `--noh / --noxt / --now` atom filters enabled in prebuilt binaries
+  (resync 2026-09-01); multi-scenario test suite + Zenodo DOI badge.
+
+---
+
 ## [1.1.0] — 2026-08-29
 
 ### Fixed (found during multi-scenario testing, 2026-08-29)

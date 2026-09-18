@@ -7,43 +7,29 @@
 
 ## Abstract
 
-**Motivation:** LightDock is an open-source docking framework based on the Glowworm
-Swarm Optimization (GSO) metaheuristic that offers 12 scoring functions and
-backbone flexibility via Anisotropic Network Models (ANM). The official
-LightDock Server was rewritten in Rust claiming "optimal speed and performance",
-yet no quantitative performance data were reported and the accompanying
-open-source Rust engine covers only 2 of the 12 scoring functions, carries
-runtime defects, and ships without automated tests.
+**Motivation:** LightDock is an open-source docking framework based on Glowworm
+Swarm Optimization that offers 12 scoring functions and ANM backbone
+flexibility. Its Rust server was described as providing "optimal speed and
+performance", but the public Rust engine covers only 2 of the 12 scoring
+functions, has runtime defects, and ships without automated tests.
 
 **Results:** We present **LKlight**, a complete Rust engine for the LightDock
-protocol. All 12 scoring functions are ported and numerically validated against
-the Python reference (48/48 comparisons pass, max |ΔE| = 4.85×10⁻⁷); three
-systematic defects of the official Rust baseline and one in LKlight's own
-DFIRE2 port are fixed (v1.1.0). A multi-tier
-optimization strategy delivers **13.0–107.5× speedups over the Python engine** on
-identical hardware and parameters; where the official Rust baseline does run
-(dna and the pyDock family), LKlight is 3.5–3.6× faster, and the
-baseline's startup failures on dfire (missing parameter file) and vdw
-(unsupported method name) are eliminated. On 30
-Protein-Protein Docking Benchmark 5 complexes under the official blind-benchmark
-protocol, the mean CAPRI top-N success-rate curves of LKlight and the Python
-engine differ by ≤ 0.02 (McNemar p = 0.34, Wilcoxon p = 0.12; both
-non-significant), showing that the optimizations change speed, not docking
-outcomes. An extended robustness sweep (v1.1.0) further confirms 100%
-crash-free operation across a parameter-scaling grid, a 12-function × 6-complex
-native-pose scoring matrix, and full docking on four biomedical scenarios
-(p53–DNA, antibody–antigen, antibody–peptide, SARS-CoV-2 RBD–hACE2), with
-3.5–3.6× (vs official Rust) and 12.5–13.6× (vs Python) speedups retained in
-head-to-head re-benchmarking on the same scenarios (§3.6). A protein–DNA indicator case study (§3.7) adds per-model Fnat, L-RMSD, iRMSD,
-DockQ and CAPRI classes together with an oracle decomposition that separates
-sampling from scoring: of 2,000 predicted poses none is CAPRI-acceptable, and
-enabling the ANM term improves the best sampled pose only marginally (L-RMSD 17.18 → 17.13 Å, DockQ 0.154 → 0.170) without closing that gap. Replicated runs (five timing repeats and six perturbed starting conditions) return equal best energies for the optimised and reference engines (Wilcoxon p = 1.0). §3.8 reports the
-head-to-head with the original LightDock and positions LKlight against
-mainstream docking programs. LKlight is distributed as a single cross-platform
-binary with all parameter data embedded.
+protocol. All 12 scoring functions pass numerical validation against the Python
+reference (48/48; max |ΔE| = 4.85×10⁻⁷), and four baseline or implementation
+defects are fixed. Multi-tier optimization gives **13.0–107.5× speedups over
+Python**; where the official Rust baseline runs, LKlight is 3.5–3.6× faster. On
+30 Protein-Protein Docking Benchmark 5 complexes under an official
+blind-benchmark protocol, mean CAPRI top-N success-rate curves differ by
+≤ 0.02 (McNemar *p* = 0.34; Wilcoxon *p* = 0.12), indicating that the changes
+improve speed without altering docking outcomes. Robustness sweeps, 12-function
+scoring across six complexes, and four biomedical docking scenarios complete
+without crashes. A protein–DNA case study reports Fnat, L-RMSD, iRMSD, DockQ
+and CAPRI classes; none of 2,000 poses is CAPRI-acceptable, and ANM marginally
+improves the best pose without closing that gap. LKlight is distributed as a
+single cross-platform binary with all parameter data embedded.
 
-**Availability:** https://github.com/LK-Studio1128/LKlight (GPL-3.0 derivative of
-LightDock); prebuilt macOS/Linux/Windows binaries and the full benchmark pipeline
+**Availability:** https://github.com/LK-Studio1128/LKlight (GPL-3.0 derivative
+of LightDock); prebuilt macOS/Linux/Windows binaries and the benchmark pipeline
 are in the repository.
 
 **Keywords:** protein–protein docking; glowworm swarm optimization; Rust; high-performance computing; molecular docking; benchmark

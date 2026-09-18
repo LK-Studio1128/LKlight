@@ -1,0 +1,14 @@
+dfire    bit-identical    max|rel|=   0.0000  sp=nan pear=nan kt=nan rmsd=0.000e+00  base=15.524ms grid=15.328ms perpose_speedup=1.013x
+dfire2   bit-identical    max|rel|=   0.0000  sp=nan pear=nan kt=nan rmsd=0.000e+00  base=9.739ms grid=9.265ms perpose_speedup=1.051x
+dna      CHECK            max|rel|=   0.0890  sp=1.0000 pear=1.0000 kt=1.0000 rmsd=2.735e+00  base=7.343ms grid=1158.195ms perpose_speedup=0.006x
+mj3h     bit-identical    max|rel|=   0.0000  sp=nan pear=nan kt=nan rmsd=0.000e+00  base=4.689ms grid=4.743ms perpose_speedup=0.989x
+pydock   CHECK            max|rel|=   0.1608  sp=1.0000 pear=1.0000 kt=1.0000 rmsd=2.735e+00  base=6.600ms grid=1119.140ms perpose_speedup=0.006x
+cpydock  CHECK            max|rel|=   2.4053  sp=0.9879 pear=0.9965 kt=0.9312 rmsd=2.735e+00  base=23.242ms grid=1181.166ms perpose_speedup=0.020x
+sd       bit-identical    max|rel|=   0.0000  sp=1.0000 pear=1.0000 kt=1.0000 rmsd=0.000e+00  base=6.894ms grid=6.692ms perpose_speedup=1.030x
+vdw      bit-identical    max|rel|=   0.0000  sp=1.0000 pear=1.0000 kt=1.0000 rmsd=0.000e+00  base=5.198ms grid=5.278ms perpose_speedup=0.985x
+pisa     bit-identical    max|rel|=   0.0000  sp=nan pear=nan kt=nan rmsd=0.000e+00  base=4.994ms grid=5.138ms perpose_speedup=0.972x
+sipper   bit-identical    max|rel|=   0.0000  sp=nan pear=nan kt=nan rmsd=0.000e+00  base=4.965ms grid=4.941ms perpose_speedup=1.005x
+tobi     bit-identical    max|rel|=   0.0000  sp=nan pear=nan kt=nan rmsd=0.000e+00  base=4.249ms grid=4.615ms perpose_speedup=0.921x
+ddna     bit-identical    max|rel|=   0.0000  sp=1.0000 pear=1.0000 kt=1.0000 rmsd=0.000e+00  base=5.250ms grid=5.162ms perpose_speedup=1.017x
+
+Wrote equiv_full_summary.csv and equiv_full_perpose.csv

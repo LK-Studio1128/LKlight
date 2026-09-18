@@ -1,0 +1,17 @@
+pipeline_2oob_dfire_ms=1163086.2
+score_2oob_dfire=Score (DFIRE): 16.754057
+score_2oob_fastdfire=Score (DFIRE): 16.754057
+score_2oob_dfire2=Score (DFIRE2): -15.731739
+score_2oob_dna=Score (DNA): -517.358160
+score_2oob_mj3h=Score (MJ3H): 3.140000
+score_2oob_pydock=Score (PYDOCK): -517.358160
+score_2oob_cpydock=Score (CPYDOCK): -524.419748
+score_2oob_sd=Score (SD): 290.767091
+score_2oob_vdw=Score (VDW): 28.658155
+score_2oob_pisa=Score (PISA): 0.182991
+score_2oob_sipper=Score (SIPPER): 1.165200
+score_2oob_tobi=Score (TOBI): 8.990000
+score_2oob_ddna=Score (DDNA): 6.486791
+score_1azp_dna=Score (DNA): -1201.385787
+score_1azp_ddna=Score (DDNA): 6.838497
+WIN_VAL_DONE

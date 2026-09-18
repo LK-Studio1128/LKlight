@@ -1,0 +1,90 @@
+Reading starting positions from "initial_positions_0.dat"
+Swarm ID 0
+Writing to swarm dir "swarm_0"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_1.dat"
+Swarm ID 1
+Writing to swarm dir "swarm_1"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_2.dat"
+Swarm ID 2
+Writing to swarm dir "swarm_2"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_3.dat"
+Swarm ID 3
+Writing to swarm dir "swarm_3"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_4.dat"
+Swarm ID 4
+Writing to swarm dir "swarm_4"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_5.dat"
+Swarm ID 5
+Writing to swarm dir "swarm_5"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_6.dat"
+Swarm ID 6
+Writing to swarm dir "swarm_6"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_7.dat"
+Swarm ID 7
+Writing to swarm dir "swarm_7"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_8.dat"
+Swarm ID 8
+Writing to swarm dir "swarm_8"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)
+Reading starting positions from "initial_positions_9.dat"
+Swarm ID 9
+Writing to swarm dir "swarm_9"
+Reading receptor: lightdock_receptor.pdb
+Reading ligand: lightdock_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 200 glowworms
+Starting optimization (200 steps)
+[metal_score] Metal BATCH scoring ACTIVE (200 poses × 362 atoms, device present)

@@ -1,0 +1,9 @@
+﻿# LKlight v1.2.0/v1.2.0-metal regression & portability matrix — 2026-09-06 (Mac mini M4, 10-core)
+# Load: idle machine, each run sequential & exclusive. Seed 324324, 1AZP, dna, 1 swarm x 1000 glowworms x 1000 steps.
+Engine,Binary,Location,WallSec,BestEnergy,Note
+exact,LKlight-v1.2.0-mac-arm64,functest/ht1000_mac/exact (built dir),247.83,-7251.9026691900,"2026-09-06 02:19; best bit-identical to RTX5090 host"
+grid,LKlight-mac-arm64 (v1.2.0),functest/ht1000_mac/grid (built dir),57.56,-7254.9522016100,"2026-09-06 02:24; best bit-identical to RTX5090 host"
+exact,LKlight-v1.2.0-mac-arm64 (copied),functest/ht1000_pristine/exact (fresh copy),219.29,-7251.9026691900,"pristine relocation rerun; idle machine; bit-identical"
+grid,LKlight-mac-arm64 (copied),functest/ht1000_pristine/grid (fresh copy),47.10,-7254.9522016100,"pristine relocation rerun; idle machine; bit-identical"
+metal,LKlight metal feature (new),functest/ht1000_metal,6.22,-7254.9516108000,"Apple GPU batch kernel v4/tg128 integrated in-engine; 7.6x vs pristine grid 47.10s, 35.3x vs exact 219.29s; best bit-identical to RTX5090 CUDA engine -7254.9516108"
+gpu-repo CPU,default build (no accel),functest/ht1000_gpurepo_cpu,41.34,-7254.9522016100,"LKlight-GPU repo CPU fallback path == standalone grid engine (bit-identical best); validates metal fallback determinism"

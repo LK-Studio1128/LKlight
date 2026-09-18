@@ -1,0 +1,678 @@
+native   dfire      exact-py=4.97e-08 grid-py=4.97e-08 (rel 2.96e-09, md 2.8A)
+native   fastdfire  exact-py=4.97e-08 grid-py=4.97e-08 (rel 2.96e-09, md 2.8A)
+native   dfire2     exact-py=1.30e-07 grid-py=1.30e-07 (rel 7.03e-10, md 2.8A)
+native   mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 2.8A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+native   cpydock    exact-py=1.65e-07 grid-py=1.64e+00 (rel 0.00302, md 2.8A)
+native   sd         exact-py=3.74e-07 grid-py=3.74e-07 (rel 1.23e-09, md 2.8A)
+native   vdw        exact-py=2.40e-07 grid-py=2.40e-07 (rel 8.37e-09, md 2.8A)
+native   pisa       exact-py=4.65e-07 grid-py=4.65e-07 (rel 2.54e-06, md 2.8A)
+native   sipper     exact-py=1.11e-16 grid-py=1.11e-16 (rel 2.84e-16, md 2.8A)
+native   tobi       exact-py=3.55e-15 grid-py=3.55e-15 (rel 3.95e-16, md 2.8A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+native   dna        exact-py=8.46e+02 grid-py=8.47e+02 (rel 0.705, md 0.3A)
+native   ddna       exact-py=1.20e-07 grid-py=1.20e-07 (rel 1.9e-08, md 0.3A)
+native   pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy01  dfire      exact-py=3.61e-07 grid-py=3.61e-07 (rel 2.28e-08, md 2.0A)
+decoy01  fastdfire  exact-py=3.61e-07 grid-py=3.61e-07 (rel 2.28e-08, md 2.0A)
+decoy01  dfire2     exact-py=1.10e-07 grid-py=1.10e-07 (rel 5.99e-10, md 2.0A)
+decoy01  mj3h       exact-py=2.22e-16 grid-py=2.22e-16 (rel 1.32e-16, md 2.0A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy01  cpydock    exact-py=1.84e-07 grid-py=1.42e+00 (rel 0.00286, md 2.0A)
+decoy01  sd         exact-py=8.79e-08 grid-py=8.79e-08 (rel 6.92e-11, md 2.0A)
+decoy01  vdw        exact-py=1.25e-07 grid-py=1.25e-07 (rel 8.35e-09, md 2.0A)
+decoy01  pisa       exact-py=1.23e-07 grid-py=1.23e-07 (rel 3.7e-06, md 2.0A)
+decoy01  sipper     exact-py=4.44e-16 grid-py=4.44e-16 (rel 1.36e-16, md 2.0A)
+decoy01  tobi       exact-py=3.55e-15 grid-py=3.55e-15 (rel 3.98e-16, md 2.0A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy01  dna        exact-py=1.34e+03 grid-py=1.34e+03 (rel 1.02, md 0.1A)
+decoy01  ddna       exact-py=1.27e-07 grid-py=1.27e-07 (rel 2.11e-08, md 0.1A)
+decoy01  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy02  dfire      exact-py=1.26e-07 grid-py=1.26e-07 (rel 7.8e-09, md 0.4A)
+decoy02  fastdfire  exact-py=1.26e-07 grid-py=1.26e-07 (rel 7.8e-09, md 0.4A)
+decoy02  dfire2     exact-py=1.40e-07 grid-py=1.40e-07 (rel 8.24e-10, md 0.4A)
+decoy02  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 0.4A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy02  cpydock    exact-py=2.54e-07 grid-py=1.06e-01 (rel 0.000127, md 0.4A)
+decoy02  sd         exact-py=2.38e-06 grid-py=2.38e-06 (rel 1.41e-15, md 0.4A)
+decoy02  vdw        exact-py=3.53e-07 grid-py=3.53e-07 (rel 1.78e-09, md 0.4A)
+decoy02  pisa       exact-py=9.64e-08 grid-py=9.64e-08 (rel 9.24e-07, md 0.4A)
+decoy02  sipper     exact-py=2.46e-14 grid-py=2.46e-14 (rel 3.86e-14, md 0.4A)
+decoy02  tobi       exact-py=2.49e-14 grid-py=2.49e-14 (rel 1.25e-15, md 0.4A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy02  dna        exact-py=3.33e-07 grid-py=5.21e-01 (rel 0.00574, md 12.4A)
+decoy02  ddna       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 12.4A)
+decoy02  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy03  dfire      exact-py=2.57e-07 grid-py=2.57e-07 (rel 6.46e-09, md 0.1A)
+decoy03  fastdfire  exact-py=2.57e-07 grid-py=2.57e-07 (rel 6.46e-09, md 0.1A)
+decoy03  dfire2     exact-py=4.30e-07 grid-py=4.30e-07 (rel 2.69e-09, md 0.1A)
+decoy03  mj3h       exact-py=7.11e-15 grid-py=7.11e-15 (rel 7.2e-16, md 0.1A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy03  cpydock    exact-py=3.08e-07 grid-py=1.46e+00 (rel 0.00135, md 0.1A)
+decoy03  sd         exact-py=9.54e-07 grid-py=9.54e-07 (rel 6.64e-16, md 0.1A)
+decoy03  vdw        exact-py=2.77e-07 grid-py=2.77e-07 (rel 7.33e-10, md 0.1A)
+decoy03  pisa       exact-py=2.77e-07 grid-py=2.77e-07 (rel 1.07e-06, md 0.1A)
+decoy03  sipper     exact-py=2.49e-14 grid-py=2.49e-14 (rel 1.18e-15, md 0.1A)
+decoy03  tobi       exact-py=2.49e-14 grid-py=2.49e-14 (rel 1.22e-15, md 0.1A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy03  dna        exact-py=7.60e+01 grid-py=7.44e+01 (rel 0.198, md 1.0A)
+decoy03  ddna       exact-py=4.44e-07 grid-py=4.44e-07 (rel 7.84e-08, md 1.0A)
+decoy03  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy04  dfire      exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+decoy04  fastdfire  exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+decoy04  dfire2     exact-py=3.60e-07 grid-py=3.60e-07 (rel 2.13e-09, md 21.2A)
+decoy04  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy04  cpydock    exact-py=3.45e-07 grid-py=1.93e-01 (rel 0.0562, md 21.2A)
+decoy04  sd         exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+decoy04  vdw        exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+decoy04  pisa       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+decoy04  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+decoy04  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 21.2A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy04  dna        exact-py=1.31e+03 grid-py=1.31e+03 (rel 0.955, md 0.4A)
+decoy04  ddna       exact-py=3.55e-07 grid-py=3.55e-07 (rel 5.88e-08, md 0.4A)
+decoy04  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy05  dfire      exact-py=4.70e-07 grid-py=4.70e-07 (rel 5.4e-08, md 3.0A)
+decoy05  fastdfire  exact-py=4.70e-07 grid-py=4.70e-07 (rel 5.4e-08, md 3.0A)
+decoy05  dfire2     exact-py=4.70e-07 grid-py=4.70e-07 (rel 2.69e-09, md 3.0A)
+decoy05  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 3.0A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy05  cpydock    exact-py=2.65e-07 grid-py=1.09e+00 (rel 0.0024, md 3.0A)
+decoy05  sd         exact-py=2.75e-07 grid-py=2.75e-07 (rel 3.71e-09, md 3.0A)
+decoy05  vdw        exact-py=4.15e-07 grid-py=4.15e-07 (rel 3.32e-08, md 3.0A)
+decoy05  pisa       exact-py=2.72e-07 grid-py=2.72e-07 (rel 8.89e-06, md 3.0A)
+decoy05  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 3.0A)
+decoy05  tobi       exact-py=2.22e-16 grid-py=2.22e-16 (rel 1.67e-16, md 3.0A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy05  dna        exact-py=1.17e+03 grid-py=1.17e+03 (rel 0.911, md 0.4A)
+decoy05  ddna       exact-py=4.33e-07 grid-py=4.33e-07 (rel 7.22e-08, md 0.4A)
+decoy05  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy06  dfire      exact-py=5.45e-08 grid-py=5.45e-08 (rel 5.92e-09, md 4.3A)
+decoy06  fastdfire  exact-py=5.45e-08 grid-py=5.45e-08 (rel 5.92e-09, md 4.3A)
+decoy06  dfire2     exact-py=1.30e-07 grid-py=1.30e-07 (rel 7.42e-10, md 4.3A)
+decoy06  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.3A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy06  cpydock    exact-py=4.55e-07 grid-py=3.44e-02 (rel 0.000102, md 4.3A)
+decoy06  sd         exact-py=2.17e-07 grid-py=2.17e-07 (rel 4.3e-08, md 4.3A)
+decoy06  vdw        exact-py=4.88e-07 grid-py=4.88e-07 (rel 1.79e-07, md 4.3A)
+decoy06  pisa       exact-py=4.82e-07 grid-py=4.82e-07 (rel 1.52e-05, md 4.3A)
+decoy06  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.3A)
+decoy06  tobi       exact-py=4.44e-16 grid-py=4.44e-16 (rel 1.31e-16, md 4.3A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy06  dna        exact-py=1.15e+03 grid-py=1.16e+03 (rel 0.838, md 0.3A)
+decoy06  ddna       exact-py=3.64e-08 grid-py=3.64e-08 (rel 6.03e-09, md 0.3A)
+decoy06  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy07  dfire      exact-py=1.25e-07 grid-py=1.25e-07 (rel 1.93e-08, md 5.6A)
+decoy07  fastdfire  exact-py=1.25e-07 grid-py=1.25e-07 (rel 1.93e-08, md 5.6A)
+decoy07  dfire2     exact-py=2.40e-07 grid-py=2.40e-07 (rel 1.4e-09, md 5.6A)
+decoy07  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 5.6A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy07  cpydock    exact-py=3.60e-07 grid-py=3.06e-01 (rel 0.00131, md 5.6A)
+decoy07  sd         exact-py=2.69e-07 grid-py=2.69e-07 (rel 5.46e-07, md 5.6A)
+decoy07  vdw        exact-py=5.09e-08 grid-py=5.09e-08 (rel 1.3e-07, md 5.6A)
+decoy07  pisa       exact-py=4.54e-09 grid-py=4.54e-09 (rel 6.33e-07, md 5.6A)
+decoy07  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 5.6A)
+decoy07  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 5.6A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy07  dna        exact-py=1.09e+03 grid-py=1.09e+03 (rel 0.967, md 0.3A)
+decoy07  ddna       exact-py=4.38e-07 grid-py=4.38e-07 (rel 7.35e-08, md 0.3A)
+decoy07  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy08  dfire      exact-py=8.14e-09 grid-py=8.14e-09 (rel 6.77e-10, md 0.5A)
+decoy08  fastdfire  exact-py=8.14e-09 grid-py=8.14e-09 (rel 6.77e-10, md 0.5A)
+decoy08  dfire2     exact-py=2.50e-07 grid-py=2.50e-07 (rel 1.49e-09, md 0.5A)
+decoy08  mj3h       exact-py=1.78e-15 grid-py=1.78e-15 (rel 1.39e-16, md 0.5A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy08  cpydock    exact-py=4.60e-07 grid-py=1.44e+00 (rel 0.00173, md 0.5A)
+decoy08  sd         exact-py=4.05e-06 grid-py=4.05e-06 (rel 3.42e-15, md 0.5A)
+decoy08  vdw        exact-py=3.68e-08 grid-py=3.68e-08 (rel 2.15e-10, md 0.5A)
+decoy08  pisa       exact-py=1.09e-07 grid-py=1.09e-07 (rel 7.16e-06, md 0.5A)
+decoy08  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 0.5A)
+decoy08  tobi       exact-py=3.89e-16 grid-py=3.89e-16 (rel 6.48e-15, md 0.5A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy08  dna        exact-py=8.79e-01 grid-py=3.23e-01 (rel 0.000709, md 2.5A)
+decoy08  ddna       exact-py=4.80e-07 grid-py=4.80e-07 (rel 8.31e-08, md 2.5A)
+decoy08  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy09  dfire      exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+decoy09  fastdfire  exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+decoy09  dfire2     exact-py=1.00e-07 grid-py=1.00e-07 (rel 5.91e-10, md 17.4A)
+decoy09  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy09  cpydock    exact-py=1.82e-07 grid-py=4.78e-02 (rel 0.00654, md 17.4A)
+decoy09  sd         exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+decoy09  vdw        exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+decoy09  pisa       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+decoy09  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+decoy09  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 17.4A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy09  dna        exact-py=1.04e+02 grid-py=1.07e+02 (rel 0.385, md 0.5A)
+decoy09  ddna       exact-py=3.50e-07 grid-py=3.50e-07 (rel 6.35e-08, md 0.5A)
+decoy09  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy10  dfire      exact-py=1.68e-07 grid-py=1.68e-07 (rel 4.79e-08, md 0.8A)
+decoy10  fastdfire  exact-py=1.68e-07 grid-py=1.68e-07 (rel 4.79e-08, md 0.8A)
+decoy10  dfire2     exact-py=1.70e-07 grid-py=1.70e-07 (rel 9.73e-10, md 0.8A)
+decoy10  mj3h       exact-py=4.44e-16 grid-py=4.44e-16 (rel 2.33e-16, md 0.8A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy10  cpydock    exact-py=1.46e-07 grid-py=2.60e+00 (rel 0.00461, md 0.8A)
+decoy10  sd         exact-py=2.83e-07 grid-py=2.83e-07 (rel 3e-15, md 0.8A)
+decoy10  vdw        exact-py=3.36e-07 grid-py=3.36e-07 (rel 1.37e-08, md 0.8A)
+decoy10  pisa       exact-py=2.04e-07 grid-py=2.04e-07 (rel 5.47e-06, md 0.8A)
+decoy10  sipper     exact-py=2.66e-15 grid-py=2.66e-15 (rel 6.21e-16, md 0.8A)
+decoy10  tobi       exact-py=1.78e-15 grid-py=1.78e-15 (rel 3.82e-16, md 0.8A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy10  dna        exact-py=2.59e+03 grid-py=2.59e+03 (rel 1.32, md 0.2A)
+decoy10  ddna       exact-py=3.57e-07 grid-py=3.57e-07 (rel 6.78e-08, md 0.2A)
+decoy10  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy11  dfire      exact-py=4.30e-07 grid-py=4.30e-07 (rel 1.5e-07, md 0.5A)
+decoy11  fastdfire  exact-py=4.30e-07 grid-py=4.30e-07 (rel 1.5e-07, md 0.5A)
+decoy11  dfire2     exact-py=2.30e-07 grid-py=2.30e-07 (rel 1.29e-09, md 0.5A)
+decoy11  mj3h       exact-py=8.88e-16 grid-py=8.88e-16 (rel 2.85e-16, md 0.5A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy11  cpydock    exact-py=2.72e-07 grid-py=1.66e+00 (rel 0.00231, md 0.5A)
+decoy11  sd         exact-py=1.19e-07 grid-py=1.19e-07 (rel 2.91e-16, md 0.5A)
+decoy11  vdw        exact-py=7.36e-08 grid-py=7.36e-08 (rel 1.28e-09, md 0.5A)
+decoy11  pisa       exact-py=7.72e-08 grid-py=7.72e-08 (rel 1.39e-05, md 0.5A)
+decoy11  sipper     exact-py=2.22e-16 grid-py=2.22e-16 (rel 1.24e-16, md 0.5A)
+decoy11  tobi       exact-py=8.88e-15 grid-py=8.88e-15 (rel 5.94e-16, md 0.5A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy11  dna        exact-py=9.41e+02 grid-py=9.41e+02 (rel 0.88, md 0.2A)
+decoy11  ddna       exact-py=1.56e-07 grid-py=1.56e-07 (rel 2.52e-08, md 0.2A)
+decoy11  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy12  dfire      exact-py=4.14e-07 grid-py=4.14e-07 (rel 7.92e-08, md 7.6A)
+decoy12  fastdfire  exact-py=4.14e-07 grid-py=4.14e-07 (rel 7.92e-08, md 7.6A)
+decoy12  dfire2     exact-py=1.00e-07 grid-py=1.00e-07 (rel 5.88e-10, md 7.6A)
+decoy12  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 7.6A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy12  cpydock    exact-py=4.98e-07 grid-py=1.13e+00 (rel 0.00626, md 7.6A)
+decoy12  sd         exact-py=8.19e-08 grid-py=8.19e-08 (rel 4.64e-07, md 7.6A)
+decoy12  vdw        exact-py=4.70e-07 grid-py=4.70e-07 (rel 7.84e-06, md 7.6A)
+decoy12  pisa       exact-py=1.65e-07 grid-py=1.65e-07 (rel 1.65e-07, md 7.6A)
+decoy12  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 7.6A)
+decoy12  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 7.6A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy12  dna        exact-py=1.28e+03 grid-py=1.28e+03 (rel 0.93, md 0.2A)
+decoy12  ddna       exact-py=4.38e-07 grid-py=4.38e-07 (rel 7.26e-08, md 0.2A)
+decoy12  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy13  dfire      exact-py=5.00e-07 grid-py=5.00e-07 (rel 9.83e-08, md 7.0A)
+decoy13  fastdfire  exact-py=5.00e-07 grid-py=5.00e-07 (rel 9.83e-08, md 7.0A)
+decoy13  dfire2     exact-py=2.30e-07 grid-py=2.30e-07 (rel 1.35e-09, md 7.0A)
+decoy13  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 7.0A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy13  cpydock    exact-py=2.31e-07 grid-py=6.08e-01 (rel 0.00374, md 7.0A)
+decoy13  sd         exact-py=2.22e-07 grid-py=2.22e-07 (rel 1.39e-06, md 7.0A)
+decoy13  vdw        exact-py=1.35e-08 grid-py=1.35e-08 (rel 1.87e-07, md 7.0A)
+decoy13  pisa       exact-py=1.86e-07 grid-py=1.86e-07 (rel 0.000126, md 7.0A)
+decoy13  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 7.0A)
+decoy13  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 7.0A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy13  dna        exact-py=1.99e+03 grid-py=2.00e+03 (rel 1.15, md 0.4A)
+decoy13  ddna       exact-py=2.43e-07 grid-py=2.43e-07 (rel 4.18e-08, md 0.4A)
+decoy13  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy14  dfire      exact-py=4.36e-08 grid-py=4.36e-08 (rel 9.26e-09, md 11.4A)
+decoy14  fastdfire  exact-py=4.36e-08 grid-py=4.36e-08 (rel 9.26e-09, md 11.4A)
+decoy14  dfire2     exact-py=1.30e-07 grid-py=1.30e-07 (rel 7.68e-10, md 11.4A)
+decoy14  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 11.4A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy14  cpydock    exact-py=1.62e-07 grid-py=2.70e-01 (rel 0.00462, md 11.4A)
+decoy14  sd         exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 11.4A)
+decoy14  vdw        exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 11.4A)
+decoy14  pisa       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 11.4A)
+decoy14  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 11.4A)
+decoy14  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 11.4A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy14  dna        exact-py=1.21e+03 grid-py=1.21e+03 (rel 1.12, md 0.6A)
+decoy14  ddna       exact-py=2.08e-07 grid-py=2.08e-07 (rel 4.1e-08, md 0.6A)
+decoy14  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy15  dfire      exact-py=3.75e-07 grid-py=3.75e-07 (rel 2.99e-08, md 1.6A)
+decoy15  fastdfire  exact-py=3.75e-07 grid-py=3.75e-07 (rel 2.99e-08, md 1.6A)
+decoy15  dfire2     exact-py=4.10e-07 grid-py=4.10e-07 (rel 2.28e-09, md 1.6A)
+decoy15  mj3h       exact-py=4.44e-16 grid-py=4.44e-16 (rel 1.43e-16, md 1.6A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy15  cpydock    exact-py=4.96e-07 grid-py=8.45e-01 (rel 0.00189, md 1.6A)
+decoy15  sd         exact-py=7.39e-08 grid-py=7.39e-08 (rel 4.85e-12, md 1.6A)
+decoy15  vdw        exact-py=8.00e-08 grid-py=8.00e-08 (rel 1e-07, md 1.6A)
+decoy15  pisa       exact-py=3.57e-07 grid-py=3.57e-07 (rel 2.04e-05, md 1.6A)
+decoy15  sipper     exact-py=8.88e-16 grid-py=8.88e-16 (rel 1.42e-16, md 1.6A)
+decoy15  tobi       exact-py=4.44e-16 grid-py=4.44e-16 (rel 3.39e-16, md 1.6A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy15  dna        exact-py=1.69e+03 grid-py=1.69e+03 (rel 1.09, md 0.2A)
+decoy15  ddna       exact-py=4.45e-07 grid-py=4.45e-07 (rel 7.65e-08, md 0.2A)
+decoy15  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy16  dfire      exact-py=4.02e-07 grid-py=4.02e-07 (rel 1.04e-07, md 0.7A)
+decoy16  fastdfire  exact-py=4.02e-07 grid-py=4.02e-07 (rel 1.04e-07, md 0.7A)
+decoy16  dfire2     exact-py=3.30e-07 grid-py=3.30e-07 (rel 1.88e-09, md 0.7A)
+decoy16  mj3h       exact-py=1.78e-15 grid-py=1.78e-15 (rel 2.08e-16, md 0.7A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy16  cpydock    exact-py=1.57e-07 grid-py=2.11e+00 (rel 0.00348, md 0.7A)
+decoy16  sd         exact-py=5.96e-07 grid-py=5.96e-07 (rel 1.59e-15, md 0.7A)
+decoy16  vdw        exact-py=3.31e-07 grid-py=3.31e-07 (rel 9.12e-09, md 0.7A)
+decoy16  pisa       exact-py=2.26e-07 grid-py=2.26e-07 (rel 1.19e-05, md 0.7A)
+decoy16  sipper     exact-py=1.46e-15 grid-py=1.46e-15 (rel 1.77e-14, md 0.7A)
+decoy16  tobi       exact-py=3.11e-15 grid-py=3.11e-15 (rel 2.2e-15, md 0.7A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy16  dna        exact-py=1.13e+03 grid-py=1.13e+03 (rel 0.87, md 0.5A)
+decoy16  ddna       exact-py=2.02e-07 grid-py=2.02e-07 (rel 3.52e-08, md 0.5A)
+decoy16  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy17  dfire      exact-py=4.44e-07 grid-py=4.44e-07 (rel 7.54e-08, md 4.5A)
+decoy17  fastdfire  exact-py=4.44e-07 grid-py=4.44e-07 (rel 7.54e-08, md 4.5A)
+decoy17  dfire2     exact-py=3.80e-07 grid-py=3.80e-07 (rel 2.22e-09, md 4.5A)
+decoy17  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.5A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy17  cpydock    exact-py=3.73e-07 grid-py=3.03e-01 (rel 0.00141, md 4.5A)
+decoy17  sd         exact-py=1.10e-07 grid-py=1.10e-07 (rel 5.5e-07, md 4.5A)
+decoy17  vdw        exact-py=1.61e-07 grid-py=1.61e-07 (rel 2.15e-07, md 4.5A)
+decoy17  pisa       exact-py=8.16e-08 grid-py=8.16e-08 (rel 2.76e-05, md 4.5A)
+decoy17  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.5A)
+decoy17  tobi       exact-py=1.11e-16 grid-py=1.11e-16 (rel 1.88e-16, md 4.5A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy17  dna        exact-py=7.32e+02 grid-py=7.34e+02 (rel 0.773, md 0.6A)
+decoy17  ddna       exact-py=4.63e-07 grid-py=4.63e-07 (rel 8.02e-08, md 0.6A)
+decoy17  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy18  dfire      exact-py=4.08e-07 grid-py=4.08e-07 (rel 4.78e-08, md 4.4A)
+decoy18  fastdfire  exact-py=4.08e-07 grid-py=4.08e-07 (rel 4.78e-08, md 4.4A)
+decoy18  dfire2     exact-py=3.40e-07 grid-py=3.40e-07 (rel 1.95e-09, md 4.4A)
+decoy18  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.4A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy18  cpydock    exact-py=4.24e-07 grid-py=2.35e-01 (rel 0.000727, md 4.4A)
+decoy18  sd         exact-py=3.27e-07 grid-py=3.27e-07 (rel 1.24e-07, md 4.4A)
+decoy18  vdw        exact-py=4.62e-07 grid-py=4.62e-07 (rel 2.46e-07, md 4.4A)
+decoy18  pisa       exact-py=4.46e-07 grid-py=4.46e-07 (rel 1.31e-05, md 4.4A)
+decoy18  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.4A)
+decoy18  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.4A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy18  dna        exact-py=2.47e+03 grid-py=2.47e+03 (rel 1.29, md 0.2A)
+decoy18  ddna       exact-py=4.97e-07 grid-py=4.97e-07 (rel 8.34e-08, md 0.2A)
+decoy18  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy19  dfire      exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+decoy19  fastdfire  exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+decoy19  dfire2     exact-py=2.90e-07 grid-py=2.90e-07 (rel 1.71e-09, md 15.9A)
+decoy19  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy19  cpydock    exact-py=4.87e-07 grid-py=1.63e-01 (rel 0.00918, md 15.9A)
+decoy19  sd         exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+decoy19  vdw        exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+decoy19  pisa       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+decoy19  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+decoy19  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 15.9A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy19  dna        exact-py=7.56e+02 grid-py=7.58e+02 (rel 0.975, md 0.6A)
+decoy19  ddna       exact-py=2.62e-07 grid-py=2.62e-07 (rel 4.68e-08, md 0.6A)
+decoy19  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy20  dfire      exact-py=1.03e-08 grid-py=1.03e-08 (rel 2.19e-09, md 10.2A)
+decoy20  fastdfire  exact-py=1.03e-08 grid-py=1.03e-08 (rel 2.19e-09, md 10.2A)
+decoy20  dfire2     exact-py=4.50e-07 grid-py=4.50e-07 (rel 2.66e-09, md 10.2A)
+decoy20  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 10.2A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy20  cpydock    exact-py=3.02e-07 grid-py=5.13e-01 (rel 0.00721, md 10.2A)
+decoy20  sd         exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 10.2A)
+decoy20  vdw        exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 10.2A)
+decoy20  pisa       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 10.2A)
+decoy20  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 10.2A)
+decoy20  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 10.2A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy20  dna        exact-py=4.48e+03 grid-py=4.48e+03 (rel 1.63, md 0.3A)
+decoy20  ddna       exact-py=1.85e-07 grid-py=1.85e-07 (rel 2.85e-08, md 0.3A)
+decoy20  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy21  dfire      exact-py=4.24e-07 grid-py=4.24e-07 (rel 5.37e-08, md 4.8A)
+decoy21  fastdfire  exact-py=4.24e-07 grid-py=4.24e-07 (rel 5.37e-08, md 4.8A)
+decoy21  dfire2     exact-py=1.80e-07 grid-py=1.80e-07 (rel 1.04e-09, md 4.8A)
+decoy21  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 4.8A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy21  cpydock    exact-py=2.27e-07 grid-py=4.40e-01 (rel 0.00159, md 4.8A)
+decoy21  sd         exact-py=4.51e-07 grid-py=4.51e-07 (rel 2e-07, md 4.8A)
+decoy21  vdw        exact-py=1.32e-07 grid-py=1.32e-07 (rel 1.04e-07, md 4.8A)
+decoy21  pisa       exact-py=3.19e-07 grid-py=3.19e-07 (rel 8.18e-06, md 4.8A)
+decoy21  sipper     exact-py=2.78e-17 grid-py=2.78e-17 (rel 2.89e-16, md 4.8A)
+decoy21  tobi       exact-py=8.88e-16 grid-py=8.88e-16 (rel 1.3e-16, md 4.8A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy21  dna        exact-py=2.45e+03 grid-py=2.46e+03 (rel 1.3, md 0.3A)
+decoy21  ddna       exact-py=2.49e-07 grid-py=2.49e-07 (rel 5.3e-08, md 0.3A)
+decoy21  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy22  dfire      exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy22  fastdfire  exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy22  dfire2     exact-py=4.70e-07 grid-py=4.70e-07 (rel 2.78e-09, md 14.0A)
+decoy22  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy22  cpydock    exact-py=3.52e-07 grid-py=1.79e-01 (rel 0.00242, md 14.0A)
+decoy22  sd         exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy22  vdw        exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy22  pisa       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy22  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy22  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy22  dna        exact-py=3.52e+03 grid-py=3.52e+03 (rel 1.46, md 0.3A)
+decoy22  ddna       exact-py=1.22e-07 grid-py=1.22e-07 (rel 1.94e-08, md 0.3A)
+decoy22  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy23  dfire      exact-py=1.62e-08 grid-py=1.62e-08 (rel 4.35e-10, md 0.4A)
+decoy23  fastdfire  exact-py=1.62e-08 grid-py=1.62e-08 (rel 4.35e-10, md 0.4A)
+decoy23  dfire2     exact-py=9.00e-08 grid-py=9.00e-08 (rel 5.84e-10, md 0.4A)
+decoy23  mj3h       exact-py=1.78e-15 grid-py=1.78e-15 (rel 2.45e-16, md 0.4A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy23  cpydock    exact-py=1.27e-07 grid-py=7.76e-01 (rel 0.000722, md 0.4A)
+decoy23  sd         exact-py=1.67e-06 grid-py=1.67e-06 (rel 1.45e-15, md 0.4A)
+decoy23  vdw        exact-py=2.20e-07 grid-py=2.20e-07 (rel 7.73e-10, md 0.4A)
+decoy23  pisa       exact-py=3.03e-07 grid-py=3.03e-07 (rel 1.14e-06, md 0.4A)
+decoy23  sipper     exact-py=2.22e-16 grid-py=2.22e-16 (rel 1.57e-16, md 0.4A)
+decoy23  tobi       exact-py=3.55e-15 grid-py=3.55e-15 (rel 1.24e-15, md 0.4A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy23  dna        exact-py=5.59e-08 grid-py=4.50e-01 (rel 0.0117, md 14.0A)
+decoy23  ddna       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 14.0A)
+decoy23  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy24  dfire      exact-py=1.03e-07 grid-py=1.03e-07 (rel 2.06e-08, md 6.0A)
+decoy24  fastdfire  exact-py=1.03e-07 grid-py=1.03e-07 (rel 2.06e-08, md 6.0A)
+decoy24  dfire2     exact-py=2.00e-08 grid-py=2.00e-08 (rel 1.18e-10, md 6.0A)
+decoy24  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 6.0A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy24  cpydock    exact-py=4.31e-08 grid-py=1.24e+00 (rel 0.00819, md 6.0A)
+decoy24  sd         exact-py=4.35e-07 grid-py=4.35e-07 (rel 5.98e-07, md 6.0A)
+decoy24  vdw        exact-py=2.96e-07 grid-py=2.96e-07 (rel 2.13e-06, md 6.0A)
+decoy24  pisa       exact-py=9.83e-08 grid-py=9.83e-08 (rel 2.17e-05, md 6.0A)
+decoy24  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 6.0A)
+decoy24  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 6.0A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy24  dna        exact-py=1.62e+03 grid-py=1.62e+03 (rel 1.08, md 0.2A)
+decoy24  ddna       exact-py=8.45e-08 grid-py=8.45e-08 (rel 1.46e-08, md 0.2A)
+decoy24  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy25  dfire      exact-py=8.39e-08 grid-py=8.39e-08 (rel 2.93e-08, md 0.7A)
+decoy25  fastdfire  exact-py=8.39e-08 grid-py=8.39e-08 (rel 2.93e-08, md 0.7A)
+decoy25  dfire2     exact-py=1.90e-07 grid-py=1.90e-07 (rel 1.08e-09, md 0.7A)
+decoy25  mj3h       exact-py=4.44e-16 grid-py=4.44e-16 (rel 1.33e-16, md 0.7A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy25  cpydock    exact-py=2.94e-07 grid-py=2.18e+00 (rel 0.00385, md 0.7A)
+decoy25  sd         exact-py=1.19e-07 grid-py=1.19e-07 (rel 2.95e-16, md 0.7A)
+decoy25  vdw        exact-py=3.08e-07 grid-py=3.08e-07 (rel 4.45e-09, md 0.7A)
+decoy25  pisa       exact-py=4.92e-07 grid-py=4.92e-07 (rel 2.89e-06, md 0.7A)
+decoy25  sipper     exact-py=1.60e-14 grid-py=1.60e-14 (rel 1.91e-15, md 0.7A)
+decoy25  tobi       exact-py=1.33e-15 grid-py=1.33e-15 (rel 1.27e-15, md 0.7A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy25  dna        exact-py=8.10e+02 grid-py=8.08e+02 (rel 0.902, md 0.5A)
+decoy25  ddna       exact-py=4.44e-09 grid-py=4.44e-09 (rel 7.81e-10, md 0.5A)
+decoy25  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy26  dfire      exact-py=4.18e-07 grid-py=4.18e-07 (rel 8.28e-08, md 5.4A)
+decoy26  fastdfire  exact-py=4.18e-07 grid-py=4.18e-07 (rel 8.28e-08, md 5.4A)
+decoy26  dfire2     exact-py=1.40e-07 grid-py=1.40e-07 (rel 8.25e-10, md 5.4A)
+decoy26  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 5.4A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy26  cpydock    exact-py=1.09e-07 grid-py=3.86e-01 (rel 0.00282, md 5.4A)
+decoy26  sd         exact-py=7.19e-08 grid-py=7.19e-08 (rel 3.09e-08, md 5.4A)
+decoy26  vdw        exact-py=4.16e-07 grid-py=4.16e-07 (rel 1.79e-06, md 5.4A)
+decoy26  pisa       exact-py=8.02e-08 grid-py=8.02e-08 (rel 4.68e-06, md 5.4A)
+decoy26  sipper     exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 5.4A)
+decoy26  tobi       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 5.4A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy26  dna        exact-py=9.84e+02 grid-py=9.85e+02 (rel 1.07, md 0.3A)
+decoy26  ddna       exact-py=3.13e-07 grid-py=3.13e-07 (rel 5.8e-08, md 0.3A)
+decoy26  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy27  dfire      exact-py=2.25e-07 grid-py=2.25e-07 (rel 3.84e-09, md 0.2A)
+decoy27  fastdfire  exact-py=2.25e-07 grid-py=2.25e-07 (rel 3.84e-09, md 0.2A)
+decoy27  dfire2     exact-py=3.30e-07 grid-py=3.30e-07 (rel 2.28e-09, md 0.2A)
+decoy27  mj3h       exact-py=0.00e+00 grid-py=0.00e+00 (rel 0, md 0.2A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy27  cpydock    exact-py=3.48e-07 grid-py=9.40e-01 (rel 0.000672, md 0.2A)
+decoy27  sd         exact-py=1.62e-05 grid-py=1.62e-05 (rel 4.98e-15, md 0.2A)
+decoy27  vdw        exact-py=1.28e-07 grid-py=1.28e-07 (rel 3.01e-10, md 0.2A)
+decoy27  pisa       exact-py=3.17e-07 grid-py=3.17e-07 (rel 3.71e-07, md 0.2A)
+decoy27  sipper     exact-py=7.11e-15 grid-py=7.11e-15 (rel 2.01e-16, md 0.2A)
+decoy27  tobi       exact-py=5.33e-14 grid-py=5.33e-14 (rel 2.78e-15, md 0.2A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy27  dna        exact-py=1.04e+02 grid-py=1.05e+02 (rel 0.22, md 1.1A)
+decoy27  ddna       exact-py=6.71e-08 grid-py=6.71e-08 (rel 1.17e-08, md 1.1A)
+decoy27  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy28  dfire      exact-py=2.86e-07 grid-py=2.86e-07 (rel 3.13e-08, md 1.2A)
+decoy28  fastdfire  exact-py=2.86e-07 grid-py=2.86e-07 (rel 3.13e-08, md 1.2A)
+decoy28  dfire2     exact-py=4.00e-08 grid-py=4.00e-08 (rel 2.21e-10, md 1.2A)
+decoy28  mj3h       exact-py=4.44e-16 grid-py=4.44e-16 (rel 1.93e-16, md 1.2A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy28  cpydock    exact-py=4.54e-07 grid-py=1.15e+00 (rel 0.00179, md 1.2A)
+decoy28  sd         exact-py=2.47e-07 grid-py=2.47e-07 (rel 3.99e-14, md 1.2A)
+decoy28  vdw        exact-py=2.67e-07 grid-py=2.67e-07 (rel 2.2e-08, md 1.2A)
+decoy28  pisa       exact-py=3.37e-07 grid-py=3.37e-07 (rel 4.95e-06, md 1.2A)
+decoy28  sipper     exact-py=4.44e-16 grid-py=4.44e-16 (rel 1.87e-16, md 1.2A)
+decoy28  tobi       exact-py=1.78e-15 grid-py=1.78e-15 (rel 2.27e-16, md 1.2A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy28  dna        exact-py=4.61e+02 grid-py=4.64e+02 (rel 0.521, md 0.3A)
+decoy28  ddna       exact-py=1.87e-07 grid-py=1.87e-07 (rel 3.12e-08, md 0.3A)
+decoy28  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy29  dfire      exact-py=2.36e-07 grid-py=2.36e-07 (rel 5e-08, md 1.2A)
+decoy29  fastdfire  exact-py=2.36e-07 grid-py=2.36e-07 (rel 5e-08, md 1.2A)
+decoy29  dfire2     exact-py=3.80e-07 grid-py=3.80e-07 (rel 2.12e-09, md 1.2A)
+decoy29  mj3h       exact-py=8.88e-16 grid-py=8.88e-16 (rel 1.85e-16, md 1.2A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy29  cpydock    exact-py=3.36e-07 grid-py=2.99e+00 (rel 0.00425, md 1.2A)
+decoy29  sd         exact-py=4.24e-07 grid-py=4.24e-07 (rel 6.7e-14, md 1.2A)
+decoy29  vdw        exact-py=3.85e-07 grid-py=3.85e-07 (rel 8.94e-09, md 1.2A)
+decoy29  pisa       exact-py=3.24e-07 grid-py=3.24e-07 (rel 6.15e-06, md 1.2A)
+decoy29  sipper     exact-py=4.44e-16 grid-py=4.44e-16 (rel 2.06e-16, md 1.2A)
+decoy29  tobi       exact-py=8.88e-16 grid-py=8.88e-16 (rel 1.86e-16, md 1.2A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy29  dna        exact-py=9.84e+02 grid-py=9.87e+02 (rel 0.901, md 0.4A)
+decoy29  ddna       exact-py=2.17e-07 grid-py=2.17e-07 (rel 3.57e-08, md 0.4A)
+decoy29  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+decoy30  dfire      exact-py=4.54e-07 grid-py=4.54e-07 (rel 2.88e-08, md 0.6A)
+decoy30  fastdfire  exact-py=4.54e-07 grid-py=4.54e-07 (rel 2.88e-08, md 0.6A)
+decoy30  dfire2     exact-py=3.00e-07 grid-py=3.00e-07 (rel 1.78e-09, md 0.6A)
+decoy30  mj3h       exact-py=1.78e-15 grid-py=1.78e-15 (rel 3.42e-16, md 0.6A)
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] INFO: Calculating reference SASA...
+[cpydock] INFO: Done.
+[cpydock] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VDW cutoff
+[cpydock] INFO: PyDock VDW cutoff is: 0.10
+decoy30  cpydock    exact-py=6.63e-08 grid-py=2.53e+00 (rel 0.0031, md 0.6A)
+decoy30  sd         exact-py=1.07e-06 grid-py=1.07e-06 (rel 1.38e-15, md 0.6A)
+decoy30  vdw        exact-py=2.79e-07 grid-py=2.79e-07 (rel 1.4e-09, md 0.6A)
+decoy30  pisa       exact-py=1.46e-07 grid-py=1.46e-07 (rel 1.51e-05, md 0.6A)
+decoy30  sipper     exact-py=1.15e-14 grid-py=1.15e-14 (rel 1.79e-15, md 0.6A)
+decoy30  tobi       exact-py=3.55e-15 grid-py=3.55e-15 (rel 1.78e-16, md 0.6A)
+[dna] WARNING: Error ([Errno 2] No such file or directory: 'vdw.in'), using default VdW cutoff
+[dna] INFO: DNA VdW cutoff is: 1.00
+decoy30  dna        exact-py=4.04e+02 grid-py=4.01e+02 (rel 0.48, md 0.3A)
+decoy30  ddna       exact-py=2.22e-07 grid-py=2.22e-07 (rel 3.82e-08, md 0.3A)
+decoy30  pydock     ERROR py=ModuleNotFoundError: No module named 'li exact= grid=
+
+dfire (2oob, n=31): exact-py max 5.00e-07  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+fastdfire (2oob, n=31): exact-py max 5.00e-07  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+dfire2 (2oob, n=31): exact-py max 4.70e-07  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+mj3h (2oob, n=31): exact-py max 7.11e-15  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+cpydock (2oob, n=31): exact-py max 4.98e-07  grid-py max 2.990 median 0.845  grid max_rel 0.0562  sp(py,grid)=1.00000
+
+sd (2oob, n=31): exact-py max 1.62e-05  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+vdw (2oob, n=31): exact-py max 4.88e-07  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+pisa (2oob, n=31): exact-py max 4.92e-07  grid-py max 0.000 median 0.000  grid max_rel 0.0001  sp(py,grid)=1.00000
+
+sipper (2oob, n=31): exact-py max 2.49e-14  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+tobi (2oob, n=31): exact-py max 5.33e-14  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+dna (1azp, n=31): exact-py max 4.48e+03  grid-py max 4480.000 median 1090.000  grid max_rel 1.6316  sp(py,grid)=0.99999
+
+ddna (1azp, n=31): exact-py max 4.97e-07  grid-py max 0.000 median 0.000  grid max_rel 0.0000  sp(py,grid)=1.00000
+
+===== done in 238.8s: exact-vs-original <1e-5 on 342/372 items =====
+outputs: orig_triple_perpose.csv / orig_triple_summary.csv

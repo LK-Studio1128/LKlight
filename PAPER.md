@@ -99,17 +99,11 @@ that motivated this work:
 
 ### 1.3 Positioning with respect to deep-learning structure prediction
 
-We are mindful that AlphaFold3 and related deep-learning predictors have achieved
-high accuracy on complex-structure prediction from sequence [12]. Yet classical
-docking retains an independent role as a *conformational search and scoring*
-tool: it explores binding modes of given structures, evaluates multiple scoring
-hypotheses, supports residue restraints and flexibility, and enables CPU-only,
-training-data-independent, interpretable high-throughput screening — rather than
-serving as a sequence-to-structure predictor. Recent systematic
-evaluations confirm that physics- and knowledge-based scoring still contributes
-uniquely to pose filtering and re-ranking [13]. LKlight is positioned within
-this classical tradition: it makes the full LightDock protocol practical for
-production and high-throughput use without altering the underlying method.
+AlphaFold3 and related predictors solve sequence-to-structure prediction [12],
+but classical docking remains useful as a conformational search and scoring
+tool: it explores binding modes of given structures, supports restraints and
+flexibility, and enables CPU-only, training-data-independent screening [13].
+LKlight sits in that role rather than as a sequence-to-structure predictor.
 
 ### 1.4 Contributions
 

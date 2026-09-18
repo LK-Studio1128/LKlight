@@ -1,0 +1,8 @@
+Reading starting positions from "initial_positions_0.dat"
+Swarm ID 0
+Writing to swarm dir "swarm_0"
+Reading receptor: lightdock_1azp_receptor.pdb
+Reading ligand: lightdock_1azp_ligand.pdb
+Loading DNA scoring function
+Creating GSO with 100 glowworms
+Starting optimization (100 steps)

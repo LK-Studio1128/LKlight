@@ -1,0 +1,1573 @@
+<!doctype html><html><head><meta charset=utf-8><title>PAPER.md</title><style>body{font-family:'Times New Roman',serif;max-width:780px;margin:2em auto;line-height:1.45;padding:0 1em}table{border-collapse:collapse;margin:1em 0}th,td{border:1px solid #999;padding:4px 8px}th{background:#eee}img{max-width:100%;height:auto}h1,h2,h3{color:#0072B2}</style></head><body>
+<h1 id="lklight-a-complete-quantitatively-benchmarked-rust-engine-for-the-lightdock-protein-docking-protocol">LKlight: a complete, quantitatively benchmarked Rust engine for the LightDock protein docking protocol</h1>
+<p><strong>Manuscript type:</strong> Application Note / Software article
+<strong>Corresponding author:</strong> Luo Xiaowen (罗晓文)</p>
+<hr>
+<h2 id="abstract">Abstract</h2>
+<p><strong>Motivation:</strong> LightDock is an open-source docking framework based on Glowworm
+Swarm Optimization that offers 12 scoring functions and ANM backbone
+flexibility. Its Rust server was described as providing "optimal speed and
+performance", but the public Rust engine covers only 2 of the 12 scoring
+functions, has runtime defects, and ships without automated tests.</p>
+<p><strong>Results:</strong> We present <strong>LKlight</strong>, a complete Rust engine for the LightDock
+protocol. All 12 scoring functions pass numerical validation against the Python
+reference (48/48; max |ΔE| = 4.85×10⁻⁷), and four baseline or implementation
+defects are fixed. Multi-tier optimization gives <strong>13.0–107.5× speedups over
+Python</strong>; where the official Rust baseline runs, LKlight is 3.5–3.6× faster. On
+30 Protein-Protein Docking Benchmark 5 complexes under an official
+blind-benchmark protocol, mean CAPRI top-N success-rate curves differ by
+≤ 0.02 (McNemar <em>p</em> = 0.34; Wilcoxon <em>p</em> = 0.12), indicating that the changes
+improve speed without altering docking outcomes. Robustness sweeps, 12-function
+scoring across six complexes, and four biomedical docking scenarios complete
+without crashes. A protein–DNA case study reports Fnat, L-RMSD, iRMSD, DockQ
+and CAPRI classes; none of 2,000 poses is CAPRI-acceptable, and ANM marginally
+improves the best pose without closing that gap. LKlight is distributed as a
+single cross-platform binary with all parameter data embedded.</p>
+<p><strong>Availability:</strong> https://github.com/LK-Studio1128/LKlight (GPL-3.0 derivative
+of LightDock); prebuilt macOS/Linux/Windows binaries and the benchmark pipeline
+are in the repository.</p>
+<p><strong>Keywords:</strong> protein–protein docking; glowworm swarm optimization; Rust; high-performance computing; molecular docking; benchmark</p>
+<hr>
+<p><strong>Scope.</strong> This is an <em>engine-level</em> correctness and performance study: we
+quantify numerical equivalence against the reference implementation, throughput,
+robustness, and the effect of each optimisation, under blind-docking protocols where stated. Sampling success against native poses is reported with standard
+indicators (§3.7) where a bound reference is available; we do not claim
+improvements in blind-docking sampling power, which the GSO protocol and
+scoring functions determine jointly.</p>
+<h2 id="1-introduction">1 Introduction</h2>
+<h3 id="11-background-molecular-docking-and-lightdock">1.1 Background: molecular docking and LightDock</h3>
+<p>Computational prediction of macromolecular complexes by docking provides
+structural and mechanistic insight into protein interactions of biomedical
+interest [1]. Among docking approaches, LightDock [1,2] occupies a distinct
+niche: rather than performing a rigid exhaustive grid search, it treats docking
+as a multimodal optimization problem solved by Glowworm Swarm Optimization (GSO)
+[3], in which an ensemble of agents ("glowworms") navigates the 6-DOF rigid-body
+space (extended with normal-mode amplitudes when ANM flexibility is enabled) by
+luciferin-mediated probabilistic attraction. This design lets LightDock
+simultaneously maintain multiple local optima (an advantage on the rugged
+interaction-energy landscapes of medium- to high-flexibility complexes) while
+remaining fully open source and scoring-function agnostic. Its 12 scoring
+functions span statistical potentials (DFIRE [4], DFIRE2 [5], MJ3h [9], PISA
+[7], SIPPER [8], TOBI [10]), physicochemical potentials (PyDock [6], cpyDOCK,
+SD, VDW, DNA) and the dDNA specialized term, and its information-driven
+extension [2] further supports residue restraints for integrative modeling.</p>
+<p>The canonical LightDock implementation is written in Python/NumPy. While it
+offers algorithmic breadth and transparency, interpreter overhead limits
+per-step throughput, which is a practical bottleneck for large-scale virtual
+screening, systematic benchmark studies, or any workflow requiring thousands of
+docking runs.</p>
+<h3 id="12-the-official-rust-implementation-claims-without-evidence-functionality-without-coverage">1.2 The official Rust implementation: claims without evidence, functionality without coverage</h3>
+<p>To address this performance bottleneck, the LightDock team released the LightDock
+Server [11], whose simulation core is "an entirely rewritten version of the
+LightDock framework in the Rust programming language for optimal speed and
+performance", enabling jobs to run "in parallel with minimum memory footprint".
+The companion open-source repository (<code>lightdock-rust</code>, GPL-3.0) makes the Rust
+engine available to the community.</p>
+<p>A close inspection of both the paper [11] and the repository reveals three gaps
+that motivated this work:</p>
+<ol>
+<li>
+<p><strong>No quantitative performance evidence.</strong> The NAR 2023 report contains no
+   benchmark table, no speedup figure, and no runtime comparison against the
+   Python implementation for the Rust engine; its three example jobs report only absolute wall-clock times. The claim of "optimal speed and performance" has
+   never been independently quantified.</p>
+</li>
+<li>
+<p><strong>Incomplete scoring-function coverage.</strong> The official Rust engine implements
+   only 2 of the 12 scoring functions as documented (DFIRE and DNA in its README;
+   an undocumented <code>pydock</code> method also exists), leaving the PyDock desolvation
+   term, SD, PISA, SIPPER, MJ3h, TOBI and dDNA unavailable in the Rust ecosystem.</p>
+</li>
+<li>
+<p><strong>Systematic defects and no test harness.</strong> The official Rust baseline
+   crashes at runtime when DFIRE parameter files are absent, computes ANM mode
+   strides incorrectly across several scoring modules (leading to out-of-bounds
+   accesses), panics on non-standard residues, and contains an atom-count
+   assertion incompatible with the ANM representation, disabling every
+   ANM-enabled run. The repository ships no automated test suite and no CI gate.</p>
+</li>
+</ol>
+<h3 id="13-positioning-with-respect-to-deep-learning-structure-prediction">1.3 Positioning with respect to deep-learning structure prediction</h3>
+<p>AlphaFold3 and related predictors solve sequence-to-structure prediction [12],
+but classical docking remains useful as a conformational search and scoring
+tool: it explores binding modes of given structures, supports restraints and
+flexibility, and enables CPU-only, training-data-independent screening [13].
+LKlight sits in that role rather than as a sequence-to-structure predictor.</p>
+<h3 id="14-contributions">1.4 Contributions</h3>
+<p>We present <strong>LKlight</strong>, a Rust engine for LightDock that closes the three gaps
+above. We separate three kinds of contribution explicitly: (A) <strong>software
+engineering</strong> — making an existing protocol complete, correct, portable and
+fast <em>without changing its semantics</em>; (B) <strong>algorithmic</strong> — changes to how the
+same arithmetic is organised (parallelism, spatial decomposition, data layout)
+and their measured limits; and (C) <strong>empirical findings</strong> — measurements that
+characterise the protocol itself. LKlight introduces <strong>no new scoring function,
+no new sampling rule and no change to the GSO equations</strong>; (A) and (C) are the
+primary contributions of this work, and (B) is deliberately confined to
+execution strategy.</p>
+<p><strong>(A) Software-engineering contributions</strong></p>
+<p>A1. <strong>Complete functional coverage.</strong> All 12 scoring functions (13 command-line
+names; <code>fastdfire</code> as a <code>dfire</code> alias) are implemented in Rust and numerically
+validated against the Python reference: 48/48 comparisons pass with a max
+|ΔE| of 4.85×10⁻⁷ (tolerance 10⁻⁶), and the repository ships 29/29 unit tests
+with lightweight PDB fixtures.</p>
+<p>A2. <strong>Defect repair of the official baseline.</strong> Three reproducible defects of the
+official Rust baseline are fixed: (i) DFIRE parameter files are embedded into
+the binary, eliminating the runtime crash when the external data directory is
+absent; (ii) the baseline's method-name whitelist (dfire/dna/pydock) is
+replaced by the full 13-name CLI, so cpydock, vdw and the remaining scoring
+functions are no longer rejected at startup; and (iii) non-standard residues
+degrade gracefully instead of panicking. In addition, a panic in LKlight's
+own DFIRE2 port on non-protein ligands was found and fixed (v1.1.0).</p>
+<p>A3. <strong>Production-grade distribution.</strong> LKlight ships as a single cross-platform
+binary (macOS arm64, Linux x86-64, Windows x86-64) with all parameter data
+embedded, plus a unified CLI covering the full LightDock workflow, in full
+GPL-3.0 compliance with attribution to the original LightDock authors [1,2,8].
+Cross-platform reproducibility is validated on Windows: all 110 GSO
+checkpoints agree with the macOS arm64 run to the full printed precision
+(max |Δ| = 0.0 at ten decimals).</p>
+<p>A4. <strong>Reproducibility bundle.</strong> Every configuration file, random seed, raw score
+file, per-run log and analysis script behind every table and figure is archived
+and enumerated in §6, together with the interface-quality evaluation scripts
+(CAPRI and DockQ) used in §3.7.</p>
+<p><strong>(B) Algorithmic contributions</strong></p>
+<p>B1. <strong>Measured performance from execution-level changes only.</strong> A multi-tier
+strategy (<code>rayon</code>-based parallelization of the receptor-atom outer loop,
+SIMD-friendly contiguous hot loops compiled at a portable CPU baseline,
+thread-local scratch-buffer reuse, <code>BufWriter</code> I/O batching) yields
+<strong>13.0–107.5× speedups over the Python engine</strong> on identical hardware and
+parameters (dfire 107.5×, vdw 18.8×, cpydock 14.2×, dna+ANM 13.0×); where the
+official Rust baseline runs (cpydock), LKlight is 3.5× faster, and it fixes the
+baseline crashes on dfire, dna and vdw.</p>
+<p>B2. <strong>A quantitative rule for spatial decomposition.</strong> We characterise when a
+spatial grid helps and when it <em>regresses</em> performance: grids pay off only for
+short-cutoff potentials, and cost extra for scoring functions whose cutoff
+radius is ≥ 15 Å because the cell-list bookkeeping no longer amortises the
+reduced pair count (§4.1). The rule is a design guideline derived from
+measurements, not an algorithmic novelty.</p>
+<p><strong>(C) Empirical findings about the protocol</strong></p>
+<p>C1. <strong>Accuracy equivalence of the optimisation.</strong> On 30 Protein-Protein Docking
+Benchmark 5 complexes under the official blind-benchmark protocol (official
+surface points, fastdfire), the mean CAPRI top-N success-rate curves of LKlight
+and the Python engine differ by ≤ 0.02, with paired tests (McNemar p = 0.34,
+Wilcoxon p = 0.12) non-significant: at this budget the optimisations change
+speed, not docking outcomes.</p>
+<p>C2. <strong>Independent starting points, not swarm size, drive hit rate.</strong> Under fixed
+initial surface points, five parameter tiers (10×50×100 → 25×200×300) give the
+same success rates because they only re-sample the existing candidate set;
+increasing the number of independent surface points is what adds new poses
+(§3.4A). This is a property of the GSO protocol at these budgets, stated here
+as a measured observation rather than a general theory of GSO.</p>
+<p>C3. <strong>ANM widens the sampled ensemble on a protein–DNA target.</strong> With identical
+seeds, initial positions and budget, enabling the ANM term slightly improves the best sampled pose on 1AZP (Sac7d–DNA): L-RMSD 17.18 → 17.13 Å, Fnat 0.256 → 0.302, DockQ 0.154 → 0.170, with decoys making native contact rising from 396 to 517 (§3.7, Table 9) — a small effect that still does not reach a CAPRI-acceptable pose at that sampling budget.</p>
+<p>C4. <strong>Engine robustness and applicability limits.</strong> Across a 3-D grid of 5
+parameter tiers × 10 scoring functions × 5 application scenarios (small / mid /
+large PPI, protein–DNA, antibody–antigen) LKlight is 100% crash-free and
+reveals three engineering rules (§3.4); an extended campaign adds a
+12-function × 6-complex native-pose score matrix (including protein–DNA
+applicability boundaries) and full GSO docking on four biomedical scenarios up
+to a 6.6k-atom viral–host interface (§3.5–3.6), with both baselines
+re-benchmarked on the same footing.</p>
+<p>The scope of (C) is the engine and the protocol at the stated sampling budgets;
+we make no claim here about the intrinsic sampling power of GSO, nor about
+absolute blind-docking success rates, which §4.3 and §3.7 delimit explicitly.</p>
+<hr>
+<h2 id="2-materials-and-methods">2 Materials and methods</h2>
+<h3 id="21-glowworm-swarm-optimization-for-docking">2.1 Glowworm Swarm Optimization for docking</h3>
+<p>LightDock formulates rigid-body protein–protein docking as a multimodal
+optimization problem over the 6-DOF space of the ligand (3 translations + 3
+rotations), optionally augmented by ANM mode amplitudes (Section 2.3). The
+search is driven by GSO [3]: an ensemble of <code>n_g</code> agents ("glowworms") encodes
+candidate poses, and each glowworm carries a <em>luciferin</em> value updated from the
+scoring function. At every step, each glowworm probabilistically moves toward a
+neighbor with higher luciferin, so that multiple local optima of the rugged
+interaction-energy landscape are explored simultaneously.</p>
+<p><strong>Luciferin update.</strong>
+$$\ell_i(t+1) = (1-\rho)\,\ell_i(t) + \gamma\, J(x_i(t))$$
+where $\rho$ is the luciferin decay rate, $\gamma$ the enhancement coefficient,
+and $J(x_i)$ the value of the selected scoring function at the pose $x_i$.</p>
+<p><strong>Neighborhood selection.</strong> Glowworm $i$ considers as neighbors those glowworms
+$j$ within its adaptive vision range whose luciferin exceeds its own:
+$$N_i(t) = {\, j \mid \lVert x_j - x_i \rVert &lt; r_i^d(t),\ \ell_j(t) &gt; \ell_i(t) \,}$$
+and selects a movement target $j \in N_i(t)$ with probability proportional to
+the luciferin difference:
+$$P(i \to j) = \frac{\ell_j(t) - \ell_i(t)}{\sum_{k \in N_i(t)} \ell_k(t) - \ell_i(t)}$$</p>
+<p><strong>Movement update.</strong> The glowworm moves toward the selected neighbor with step
+size $s$; rotational components are interpolated by quaternion SLERP:
+$$x_i(t+1) = x_i(t) + s\,\frac{x_j - x_i}{\lVert x_j - x_i \rVert}$$</p>
+<p><strong>Vision-range adaptation.</strong>
+$$r_i^d(t+1) = \min!\Big(r_s,\ \max!\big(0,\ r_i^d(t) + \beta\,(n_t - |N_i(t)|)\big)\Big)$$</p>
+<p>After a fixed number of steps (100 by default), glowworms have converged to
+several clusters representing distinct energy optima; cluster representatives are
+ranked by scoring to form the final model list.</p>
+<h3 id="22-scoring-functions">2.2 Scoring functions</h3>
+<p>LKlight implements all 12 scoring functions of the LightDock protocol (13
+command-line names; <code>fastdfire</code> is a compatibility alias of <code>dfire</code>), spanning
+three potential families (Table 1):</p>
+<p><strong>Table 1.</strong> The 12 scoring functions of the LightDock protocol implemented in LKlight, grouped by potential family.</p>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Scoring functions</th>
+<th>Cutoff</th>
+<th>ANM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Statistical potentials</td>
+<td>DFIRE [4], DFIRE2 [5], MJ3h [9], PISA [7], SIPPER [8], TOBI [10]</td>
+<td>7.5–15 Å</td>
+<td>✓ (SIPPER ✗)</td>
+</tr>
+<tr>
+<td>Physicochemical potentials</td>
+<td>PyDock [6] (Coulomb + LJ vdW), cpyDOCK (+desolvation), VDW, DNA</td>
+<td>10–30 Å</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Solvation / DNA-specific</td>
+<td>SD (ASA-weighted desolvation), dDNA</td>
+<td>9–15 Å</td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<p>Representative forms (full definitions in LightDock 1.0 [1]):</p>
+<p><strong>DFIRE</strong> statistical potential (distance-scaled, finite ideal-gas reference
+state):
+$$E_{\text{DFIRE}} = \sum_{i&lt;j} \Delta E_{\text{DFIRE}}(d_{ij},\ t_i,\ t_j)$$</p>
+<p><strong>PyDock</strong> electrostatics + van der Waals:
+$$E_{\text{pyDock}} = -\Big(\frac{F}{\varepsilon}\sum_{i,j}\frac{q_i q_j}{r_{ij}^2}\,\mathbf{1}[r_{ij}\le r_{\text{elec}}] \;+\;
+\sum_{i,j}\varepsilon_{ij}\big[(\tfrac{\sigma_{ij}}{r_{ij}})^{12} - 2(\tfrac{\sigma_{ij}}{r_{ij}})^6\big]\,\mathbf{1}[r_{ij}\le r_{\text{vdw}}]\Big)$$</p>
+<p><strong>cpyDOCK</strong> desolvation term (ASA-weighted):
+$$E_{\text{solv}} = \sum_i \text{ASA}<em _min_i="\min,i">i \cdot d_i \cdot \min(-10\,d</em>} + 65,\ \text{ASA<em _min_i="\min,i">i) \cdot \mathbf{1}[d</em>]$$} \le d_{\text{solv}</p>
+<h3 id="23-anm-backbone-flexibility">2.3 ANM backbone flexibility</h3>
+<p>Backbone flexibility is introduced by superposing a small number of low-frequency
+Anisotropic Network Model (ANM) [14] normal modes on the rigid-body pose. For a
+structure with $N_{\text{anm}}$ mobile atoms and $N_{\text{modes}}$ modes (denoted $M$ in LightDock's codebase), the deformed
+coordinates are:
+$$\mathbf{x}<em m="1">{\text{anm}}(k) = \mathbf{x}_0(k) + \sum</em>}^{M} q_m\, \mathbf{v<em _text_anm="\text{anm">m(k),\qquad k=1,\ldots,N</em>$$
+where $\mathbf{v}}<em _text_anm="\text{anm">m(k)$ is the $m$-th mode displacement at atom $k$ (stored as a
+flat vector of length $M \times N</em> \times 3$) and $q_m$ the
+corresponding mode amplitude carried in the GSO state vector. The correct
+indexing convention is
+$$b = m \cdot N_{\text{anm}} \cdot 3 + k \cdot 3,\qquad
+\text{stride} = \frac{\text{nmodes.len()}}{3 \times N_{\text{modes}}}$$}</p>
+<h3 id="24-architecture-and-command-line-interface">2.4 Architecture and command-line interface</h3>
+<p>LKlight is a single Rust binary (~8,100 lines, safe Rust [15]) exposing a unified
+CLI that covers the full LightDock workflow: <code>setup</code>, <code>run</code>, <code>generate</code>,
+<code>cluster</code>, <code>rank</code>/<code>rank_swarm</code>, <code>top</code>, <code>filter</code>, <code>score</code>, <code>diameter</code>,
+<code>trajectory</code>, <code>map_contacts</code>, <code>reference_points</code>, <code>gso_to_csv</code>, <code>move_anm</code>, and
+<code>pipeline</code> (one-command end-to-end automation). Source modules map one-to-one
+onto scoring functions (<code>pydock.rs</code>, <code>cpydock.rs</code>, <code>dfire.rs</code>, <code>dfire2.rs</code>,
+<code>sd.rs</code>, <code>pisa.rs</code>, <code>tobi.rs</code>, <code>mj3h.rs</code>, <code>sipper.rs</code>, <code>dna.rs</code>, <code>ddna.rs</code>,
+<code>vdw.rs</code>) plus the GSO engine (<code>swarm.rs</code>, <code>glowworm.rs</code>, <code>qt.rs</code>,
+<code>simulator.rs</code>).
+Figure 1 gives the complete software architecture: the unified CLI sits on top
+of the GSO engine core and the <code>Score</code> trait (12 scoring families), beneath which the three execution paths (the reference all-pairs engine, the CPU grid path, and the GPU batch path of the companion manuscript) implement the same scoring semantics, with an automatic fallback to the CPU grid whenever no
+compatible GPU is present or when ANM/restraints/membrane features are used.
+Every layer is exercised by the public test suite (<code>cargo test --lib</code>), and the
+figure also summarises the numerical contract that ties the three paths
+together.</p>
+<p><img alt="Figure 1" src="figures3/fig_architecture.png"></p>
+<h3 id="25-correctness-fixes-over-the-official-rust-baseline">2.5 Correctness fixes over the official Rust baseline</h3>
+<p>We systematically tested the official <code>lightdock-rust</code> baseline (v0.3.2,
+upstream checkout) and identified three reproducible defects that make it
+unusable for production workflows; all are fixed in LKlight.</p>
+<p><strong>Fix 1: DFIRE parameter embedding (crash elimination).</strong> The baseline loads
+the DFIRE parameter matrix from an external <code>data/DCparams</code> file at runtime
+(<code>LIGHTDOCK_DATA</code>); when the file is absent it panics with <code>Unable to open DFIRE
+parameters</code> and the scoring function is unusable — a failure we reproduce in
+§3.6. LKlight embeds the matrix into the binary (<code>include_bytes!</code> / const
+arrays), removing the external-file dependency entirely.</p>
+<p><strong>Fix 2: Full scoring-function access from the CLI.</strong> The baseline's CLI
+accepts only three method names (<code>dfire</code>, <code>dna</code>, <code>pydock</code>); <code>cpydock</code>, <code>vdw</code>
+and all other scoring functions abort at startup with <code>method not supported</code>
+even though the corresponding Python implementations exist upstream. LKlight
+exposes all 13 command-line names through a unified <code>-s/--scoring</code> interface
+and validates each against the embedded implementation.</p>
+<p><strong>Fix 3: Graceful degradation on non-standard residues.</strong> <code>dfire.rs</code> calls
+<code>r3_to_numerical</code> on every residue and panics (<code>Residue name not supported</code>) on
+anything outside its amino-acid table, and its atom-type lookup panics on
+unmapped atoms (<code>Not supported atom type</code>) — both fire on nucleic-acid ligands.
+LKlight skips unknown residues with a warning during construction and returns
+the maximum penalty (999) for them during scoring, instead of aborting.</p>
+<p>Beyond these baseline defects, our numerical comparison against the Python
+reference (Table 2) exposed six substantive porting deviations in
+LKlight's own scoring implementations, all now fixed and verified to 48/48:</p>
+<p><strong>Deviation A: FP summation order in <code>sd</code>.</strong> Python accumulates the pairwise
+energy in ascending neighbor order while LKlight enumerated grid cells, causing a
+catastrophic floating-point divergence (305.5 vs 290.8). Fix: collect neighbours
+and sort before summing, matching Python's order (diff ≈ 10⁻⁷).</p>
+<p><strong>Deviation B: Missing intramolecular pairs in <code>dfire2</code>.</strong> Python evaluates all
+i&lt;j pairs over the concatenated receptor+ligand array, including intra-molecular
+non-same-residue pairs; LKlight counted only cross-molecule pairs, giving a
+constant ~169 offset. Fix: full pair loop over the composite array with a ligand
+residue-number offset (diff ≈ 10⁻⁷).</p>
+<p><strong>Deviation C: Centroid-exclusion rule in <code>mj3h</code>.</strong> Python excludes exactly
+<code>["O","C","N","H"]</code> from centroid computation (CA participates); LKlight wrongly
+excluded N/CA/C/O/H/HA/HN/OXT. Fix: match the Python rule exactly (diff = 0).</p>
+<p><strong>Deviation D: Desolvation SASA in <code>cpydock</code>.</strong> Python computes reference SASA
+with freesasa's Lee–Richards algorithm on the <em>unbound</em> monomer (probe 1.4 Å, 20
+slices, desolvation radii) rather than a lookup table, and the C extension reads
+the int64 hydrogen flags through a uint32 pointer (only even-indexed atoms take
+part in the min-distance update). LKlight now embeds a faithful Lee–Richards
+implementation (<code>lr_sasa.rs</code>) and reproduces the flag-view semantics (diff ≤
+4.4×10⁻⁷).</p>
+<p><strong>Deviation E: Type width in <code>sipper</code>.</strong> The C extension reads the int64
+residue-index and atoms-per-residue arrays as uint32, so every other residue is
+seen as ALA with zero atoms, and the inner loop breaks per contacting receptor
+atom. LKlight reproduces both behaviours (diff ≤ 10⁻¹⁵).</p>
+<p><strong>Deviation F: Integer truncation and atom mapping in <code>ddna</code>.</strong> The Cython
+kernel truncates the distance to an integer (<code>cdef unsigned int d</code>) before
+binning, and the DNA/RNA atom-type map was incomplete (missing C1'/O2'/P etc.),
+which silently dropped atoms. LKlight replicates the truncation and completes the
+atom map from the Python table (diff ≈ 10⁻⁷).</p>
+<p><strong>Fix 5 (v1.1.0, LKlight's own port): DFIRE2 panic on non-protein ligands.</strong> The
+DFIRE2 atom-type dictionary ships only the 20 standard amino acids; when the
+ligand contained no recognized atoms (e.g. the DNA ligand of 1AZP), the ligand
+residue-offset computation indexed <code>[0]</code> on an empty vector and panicked. LKlight
+now uses safe <code>match (last, first)</code> destructuring with graceful offset-0
+degradation; regression-verified (1AZP dfire2 = −83.70; p53–DNA full GSO run
+completes).
+The fix does not extend DFIRE2 to nucleotides — the correct families for
+protein–nucleic-acid interfaces remain <code>dna</code>/<code>ddna</code> (§3.5B) — it merely removes
+the crash class. (Numbered Fix 7 in the repository CHANGELOG, where it follows
+intermediate release fixes; here we renumber consecutively.)</p>
+<h3 id="26-performance-engineering">2.6 Performance engineering</h3>
+<p>We treat performance engineering as a sequence of <em>measured</em> decisions; each
+tier below was benchmarked in isolation before being retained.</p>
+<p><strong>Tier 1: memory.</strong> Per-step heap allocations were eliminated from hot paths:
+<code>thread_local!</code> scratch buffers reused across energy evaluations;
+<code>Glowworm::translation</code> changed from <code>Vec&lt;f64&gt;</code> to <code>[f64;3]</code>; <code>qt::rotate()</code>
+returns a stack <code>[f64;3]</code> instead of a heap <code>Vec&lt;f64&gt;</code>; per-step scratch vectors
+are resized in place in the movement phase, and neighbor lists are iterated by
+value instead of cloned. <code>sqrt_vdw_charges</code> precomputation removes a <code>sqrt</code> per
+atom pair from the PyDock-family hot loop.</p>
+<p><strong>Tier 2: parallelism.</strong> The receptor-atom outer loop of the scoring kernels
+(<code>pydock</code>, <code>cpydock</code>, <code>dna</code>, <code>dfire</code>, <code>dfire2</code>, <code>sd</code>) is parallelized with
+<code>rayon</code> [16], splitting the per-atom pair energy accumulation across threads and
+reducing results deterministically. The GSO movement phase is likewise
+parallelized via field-level borrow splitting, with random numbers pre-generated
+so that results stay reproducible under a fixed seed.</p>
+<p><strong>Tier 3: SIMD-friendly hot paths.</strong> Hot loops were rewritten as
+contiguous-array access patterns with simple inner bodies, enabling LLVM
+auto-vectorization. Release builds use a portable CPU baseline (<code>x86-64</code> /
+generic aarch64); <code>RUSTFLAGS="-C target-cpu=native"</code> is supported for local peak
+benchmarking.</p>
+<p><strong>Tier 4: I/O.</strong> <code>swarm.rs</code> writes GSO snapshots through <code>BufWriter</code>, batching
+per-line syscalls into large writes.</p>
+<p><strong>Key decision: spatial grids were withdrawn for long-range potentials.</strong>
+An initial optimization introduced a 3D hash grid (cell = 10 Å, ±3 neighbors =
+7³ = 343 cell lookups per receptor atom) for the 30 Å-cutoff PyDock potential. It
+<em>regressed</em> performance: for a 221-atom ligand only ~14 grid cells are non-empty,
+so 343 hash lookups (~50 ns each ≈ 17 µs per receptor atom) cost far more than
+the direct O(N²) traversal they replace (~221 × 2 ns ≈ 0.44 µs per receptor
+atom), a ~38× overhead. The same analysis explains why the <em>short-cutoff</em> SD
+potential (9 Å, 3³ = 27 cells, genuinely sparse) does benefit from a grid
+(retained, true O(N²)→O(N) sparsification), while DFIRE's 15 Å grid also
+regressed and was removed. The rule of thumb is quantitative: spatial grids pay
+off when the cutoff is genuinely sparse relative to system size (<code>r_cut /
+r_protein ≲ 0.3</code>), and backfire when the cutoff spans most of the protein.</p>
+<hr>
+<h3 id="27-common-protocol-and-reproducibility">2.7 Common protocol and reproducibility</h3>
+<p>To keep comparisons paired and numbers interpretable, every experiment follows
+one protocol, restated wherever a result is reported:</p>
+<ul>
+<li><strong>Fixed seeds, shared inputs.</strong> Surface points and ANM modes are generated
+  with a fixed seed (324324). Where two engines are compared, the initial
+  positions are generated <em>once</em> and shared, so both engines consume identical
+  inputs and the comparison is paired rather than merely same-parameter.</li>
+<li><strong>Sampling budgets are stated, never implied.</strong> Three budgets appear in this
+  work: (i) <em>fixed-work speed benchmarks</em> (Tables 3, 7–8 and Figures 2, 5, 7–8) use 200 glowworms × 100 steps in one swarm, with the parameter-scaling sweep of Figure 5 extending to 400 glowworms and 200 steps; (ii) the <em>Benchmark 5 accuracy-equivalence
+  campaign</em> (§3.3) uses the official surface points with swarms = 10,
+  glowworms = 50, steps = 100 — about 80× fewer poses than the upstream default
+  (400 × 200) — chosen for tractability and stated every time a success rate is
+  quoted; and (iii) the <em>protein–DNA case study</em> (§3.7) uses swarms = 10,
+  glowworms = 200, steps = 200 (2,000 predicted poses). Success rates from
+  different budgets are never compared with one another.</li>
+<li><strong>Hardware.</strong> Wall-clock numbers are single-node measurements on the host
+  named in each table: the Mac mini M4 (10-core, macOS arm64) for the CPU
+  numbers here, and the RTX 5090 / RTX 3080 Ti / M4 hosts of the companion GPU
+  manuscript for the GPU numbers. Timings are wall-clock, not CPU-time; the
+  first run after a cold start is retained and discussed rather than silently
+  discarded (§3.7, Result 3).</li>
+<li><strong>Scoring names.</strong> The CLI exposes 13 names for 12 functions (<code>fastdfire</code> is
+  an alias of <code>dfire</code> [4]); the name printed in a table is the name used in
+  that run.</li>
+<li><strong>Evaluation.</strong> Interface quality follows the published CAPRI criteria
+  [17,20] and the DockQ score [21]. The evaluation code is a self-contained
+  script in the repository that uses no third-party docking library, so the
+  archived PDB files suffice to recompute every indicator in §3.7.</li>
+<li><strong>Score units.</strong> Reported values are docking scores in each scoring
+  function's native units. They are not calibrated binding free energies and
+  are not comparable across functions; cross-function tables therefore
+  normalise within rows (§3.5).</li>
+<li><strong>Archived material.</strong> Configuration files, seeds, per-run logs, raw score
+  files and analysis scripts for every table and figure are enumerated in §6.</li>
+</ul>
+<hr>
+<h2 id="3-results">3 Results</h2>
+<p>Results are ordered by evidence layer: implementation correctness (§3.1),
+throughput (§3.2), equivalence at docking tasks (§3.3), robustness boundaries
+(§3.4–3.6), interface-quality indicators with replicated runs (§3.7), and
+positioning against other engines and programs (§3.8).</p>
+<h3 id="31-correctness-validation">3.1 Correctness validation</h3>
+<p><strong>Table 2.</strong> Correctness validation of LKlight.</p>
+<table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Count</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cargo test --lib</code> (public unit tests)</td>
+<td>29</td>
+<td>29/29 pass</td>
+</tr>
+<tr>
+<td>Numerical comparison vs Python reference (12 comparable scoring functions × 4 rigid poses)</td>
+<td>48</td>
+<td>48/48 pass (max |ΔE| = 4.85×10⁻⁷)</td>
+</tr>
+<tr>
+<td>pydock (no Python reference in 0.9.4; rust-only self-check)</td>
+<td>4</td>
+<td>self-consistent</td>
+</tr>
+<tr>
+<td>Floating-point deviation (parallel accumulation order)</td>
+<td>—</td>
+<td>~2×10⁻¹³, relative error &lt; 10⁻¹²</td>
+</tr>
+<tr>
+<td>Windows cross-platform GSO trajectory reproducibility (2X9A, 10 swarm × 11 checkpoints × 50 glowworms)</td>
+<td>110</td>
+<td>110/110 pass (max |Δ| = 0.0)</td>
+</tr>
+</tbody>
+</table>
+<p>Unit-test assertions use an absolute tolerance of ε = 10⁻⁸; the numerical
+comparison uses ε = 10⁻⁶, and the measured maximum absolute deviation is
+4.85×10⁻⁷; most entries are below 10⁻⁷, indistinguishable from exact agreement at this
+precision; the residual deviations are attributable to floating-point accumulation
+order rather than to differing formulas or constants. Inputs are the 2oob (protein) and
+1azp (protein–DNA) systems under identity/translation/rotation/composite rigid
+transforms of the ligand; the full itemized results are in
+<code>benchmarks_raw/numeric_validation_raw.tsv</code>. During development the comparison
+located and fixed six substantive Rust-vs-Python deviations (see §2.5): the
+floating-point summation order in sd, missing intramolecular pairs in DFIRE2,
+the centroid-exclusion rule in mj3h, the desolvation SASA computation and
+hydrogen-flag reads in cpyDock, the residue-index/atom-count type width in
+SIPPER, and the distance integer truncation and atom-type mapping in dDNA. These checks establish software and numerical correctness. Whether the engine is useful at realistic docking tasks is a separate question, addressed by the Benchmark 5 campaign (§3.3) and the protein–DNA study (§3.7); the two layers of evidence should not be conflated.</p>
+<h3 id="32-performance-benchmark">3.2 Performance benchmark</h3>
+<p><strong>Table 3.</strong> Wall-clock performance benchmark (ms; single swarm, 100 steps, 200 glowworms, mean of 3 runs, Mac mini M4 10-core, macOS arm64).</p>
+<p><strong>Environment:</strong> macOS arm64 (Apple Silicon, Mac mini M4, 10 cores); single swarm,
+100 steps, 200 glowworms, mean of 3 runs. Initial positions were generated by the
+official <code>lightdock3_setup.py</code> and shared by all three engines; the Python engine
+was invoked with <code>-l 0</code> to run swarm 0 only. Cross-platform Windows timing is
+reported in the supplement (<code>verify_equivalence/04_win_crossplat/</code>); a Linux x86-64
+comparison table is left as future work. The <code>pydock</code> scenario is omitted because
+LightDock 0.9.4 does not ship a <code>pydock</code> scoring module (the pyDock family is
+represented by <code>cpydock</code>); LKlight's standalone <code>pydock</code> command remains available
+for users who need the Coulomb+LJ-only variant.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Python (ms)</th>
+<th>Official Rust (ms)</th>
+<th>LKlight (ms)</th>
+<th>LKlight/Py</th>
+<th>LKlight/Official</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1PPE dfire</td>
+<td>164,968</td>
+<td>CRASH¹</td>
+<td>1,535</td>
+<td>107.5×</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1PPE vdw</td>
+<td>25,721</td>
+<td>N/S²</td>
+<td>1,370</td>
+<td>18.8×</td>
+<td>—</td>
+</tr>
+<tr>
+<td>1PPE cpydock</td>
+<td>30,313</td>
+<td>7,567</td>
+<td>2,143</td>
+<td>14.2×</td>
+<td>3.5×</td>
+</tr>
+<tr>
+<td>1AZP dna + ANM</td>
+<td>50,607</td>
+<td>13,171³</td>
+<td>3,901</td>
+<td>13.0×</td>
+<td>3.4×</td>
+</tr>
+</tbody>
+</table>
+<p>¹ The official Rust baseline panics at startup on <code>dfire</code> because the external <code>DCparams</code> file is absent (Fix 1); the time was therefore unmeasurable. ² <code>vdw</code> is rejected at startup (method name not supported; Fix 2). ³ Re-measured on the pristine v0.3.2 checkout (mean of 3 runs); the earlier CRASH entry was not reproducible and is corrected here — see Table 8, where the same scenario measures 13.17 s. The cpydock row invokes the baseline's <code>pydock</code> method (its supported name for the pyDock family; Table 8 re-measures it at 8.71 s). Python uses the official <code>lightdock3</code> engine with the same setup and swarm_0; all values are means of 3 runs on a Mac mini M4 (10-core), single swarm, 100 steps, 200 glowworms.</p>
+<p>Figure 2 visualizes these numbers as a log-scale grouped bar chart for direct
+visual comparison of the three engines.</p>
+<p><img alt="Figure 2" src="figures/fig1_performance.png"></p>
+<p><strong>Anchor against the official README timings.</strong> The official repository reports
+(e.g., M3 Pro): 1PPE dfire ≈ 4.25 s and 1AZP dna ≈ 30.3 s per swarm. On the
+Mac mini M4 used here, LKlight runs 1PPE dfire in 1.54 s and 1AZP dna in 3.90 s
+(a 2.8× and 7.8× gap, respectively). Two caveats apply. First, the official
+README timings are reported on an unspecified Apple Silicon configuration, so
+this comparison is qualitative rather than a rigorous same-hardware benchmark.
+Second, the README's 4.25 s for dfire was produced with the official default
+runtime path (which selects the C-accelerated <code>fastdfire</code> module), whereas
+Table 3 measures the <code>-s dfire</code> invocation used for the three-way comparison;
+LightDock ships several dfire implementations, so the README number and the
+Table 3 Python time are not directly interchangeable. On either Python path
+LKlight remains substantially faster (2.8× against the README's fast path,
+107.5× against the plain <code>dfire</code> path).</p>
+<p><strong>Scaling and memory.</strong> The 107.5× end-to-end speedup on 1PPE dfire reflects the
+joint effect of <code>rayon</code>-based receptor-atom parallelization on 10 cores and the
+SIMD-friendly hot-path rewriting; peak RSS per swarm stays below 100 MB on the
+tested inputs (e.g., 1PPE 1615 receptor atoms + 1AZP 1587 receptor atoms).
+Detailed 1/2/4/8-thread scaling curves and cross-system memory profiles are
+left as future work; the public repository ships the benchmark harness
+(<code>verify_equivalence/run_equivalence.py</code>) for independent re-measurement.</p>
+<h3 id="33-accuracy-equivalence-with-the-python-engine">3.3 Accuracy equivalence with the Python engine</h3>
+<p><strong>Protocol.</strong> Thirty complexes were selected from the Protein-Protein Docking
+Benchmark 5 (official <code>lightdock_bm5</code> repository) and docked <em>ab initio</em> under
+the official LightDock blind-benchmark protocol: initial positions were generated
+once by the official <code>lightdock3_setup.py</code> surface points (swarms=10,
+glowworms=50) and shared by both engines, which then ran with identical
+parameters (swarms=10, glowworms=50, steps=100, scoring=fastdfire). The official
+Python baseline (BLIND.list, fastdfire) served as a cross-check; the Table 4
+Python column was produced by local runs with the same protocol as LKlight.
+For each engine, poses were ranked by scoring and the top-N sets
+(N = 1, 5, 10, 20, 50, 100) were assessed against the bound native structure
+with the CAPRI criteria [17] (acceptable or better: Fnat ≥ 0.1 and L-RMSD ≤ 10 Å;
+medium: Fnat ≥ 0.3 and L-RMSD ≤ 5 Å; high: Fnat ≥ 0.5 and L-RMSD ≤ 1 Å). Success
+rate = fraction of complexes whose top-N set contains ≥ 1 acceptable-or-better
+model, following the official LightDock evaluation convention [1,2].</p>
+<p><strong>Pipeline validation.</strong> The pipeline was exercised end-to-end on BM5 complexes
+with both engines. Sanity checks pass: a native structure scored as a model
+yields Fnat = 1.0, L-RMSD ≈ 0 and CAPRI "high"; a single-case reproduction
+experiment (2X9A, official surface points) exactly matched the historical
+result (top-5 success rate 0.6). Per-model metrics (Fnat, L-RMSD, receptor RMSD,
+CAPRI class) are recorded for every top-N pose of both engines.</p>
+<p><strong>Result: 30-case batch validation (fastdfire).</strong> Across the 30 BM5 complexes,
+the two engines' mean top-N success-rate curves coincide within sampling noise at
+every range: the mean absolute difference is ≤ 0.020 at all top-N (Table 4,
+Figure 3). Pairwise concordance: at top-100 LKlight hits 15/30 complexes vs 11/30
+for Python, with 8 complexes hit by both engines; the discordant pairs split
+7 (LKlight-only) vs 3 (Python-only), McNemar exact binomial p = 0.34, not
+significant. The per-complex top-100 success rates give a Wilcoxon signed-rank
+p = 0.12, likewise not significant.</p>
+<p><strong>Table 4.</strong> Mean top-N success rates over 30 BM5 complexes (swarms=10,
+glowworms=50, steps=100, fastdfire, official surface-point initial positions).</p>
+<table>
+<thead>
+<tr>
+<th>top-N</th>
+<th>LKlight</th>
+<th>Python LightDock</th>
+<th>|diff|</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>0.033</td>
+<td>0.033</td>
+<td>0.000</td>
+</tr>
+<tr>
+<td>5</td>
+<td>0.053</td>
+<td>0.033</td>
+<td>0.020</td>
+</tr>
+<tr>
+<td>10</td>
+<td>0.040</td>
+<td>0.033</td>
+<td>0.007</td>
+</tr>
+<tr>
+<td>20</td>
+<td>0.030</td>
+<td>0.022</td>
+<td>0.008</td>
+</tr>
+<tr>
+<td>50</td>
+<td>0.022</td>
+<td>0.015</td>
+<td>0.007</td>
+</tr>
+<tr>
+<td>100</td>
+<td>0.019</td>
+<td>0.010</td>
+<td>0.009</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Figure 3" src="figures/fig2_success_rates.png"></p>
+<p>Per complex, the engines exchange leadership, the signature of equivalent
+engines under finite GSO sampling: LKlight-only hits include 1M27 (top-100 0.06
+vs 0.00), 3F1P (top-1 1.00 vs 0.00) and 2X9A (top-100 0.14 vs 0.07); Python-only
+hits include 3DAW (top-5 0.20 vs 0.00) and 3H11 (top-10 0.10 vs 0.00). The union
+success rate (a complex counted as solvable if either engine finds ≥ 1 hit in
+top-100) is 18/30 (60%), the scale expected in the reduced-sampling regime
+(10×50 vs the official 400×200 protocol). This experiment claims the
+<em>comparative</em> equivalence of the two engines, not absolute success rates.</p>
+<p><strong>Summary.</strong> The optimizations change runtime by orders of magnitude but do not
+change docking outcomes: accuracy is equivalent by construction (the same
+algorithmic steps, with numerical agreement at 10⁻¹²), and by measurement in a
+30-case official-protocol batch validation (mean success-rate curve difference
+≤ 0.02; both paired tests non-significant).</p>
+<h3 id="34-system-robustness-tests-parameter-tiers-scoring-functions-and-application-scenarios">3.4 System robustness tests: parameter tiers, scoring functions, and application scenarios</h3>
+<p>To characterize LKlight's behavior at the boundaries of protocol parameter choice,
+scoring-function family and application scale, we designed three controlled
+experiments with 2X9A (small protein–protein) as the reference system. All runs
+are single-swarm × 100 steps × mean of 3, on macOS arm64; initial surface points
+come from the official <code>lightdock3_setup.py</code> (<code>--seed_points 0 --seed_anm 0</code>).
+All scenarios completed without crash or timeout.</p>
+<p><strong>(A) Tier sweep: the zero-gain effect of parameter expansion.</strong> Sweeping
+swarms × glowworms × steps through 10×50×100, 10×100×100, 20×100×100,
+20×200×100 and 25×200×300, all five tiers yield the <strong>same</strong> top-5 = 0.60 and the
+same top-10/20/50/100 curves (Figure 4A). Reason: under fixed initial
+surface points and seed, expanding glowworms / swarm / steps only <em>re-samples</em>
+existing candidates and introduces no new pose proposals. Engineering
+implication: to actually improve hit rate, increase <em>independent</em> surface
+points (via <code>--seed_points</code>, denser receptor-surface sampling), not the swarm
+budget; the latter only inflates compute with no quality gain.</p>
+<p><strong>(B) Scoring-function cross-cut (hit rate × speed).</strong> Comparing 10 scoring
+functions on 2X9A reveals three clear tiers plus a zero-hit group (Table 5,
+Figure 4B): <em>Tier 1</em>:
+fastdfire, dfire with top-5 = 0.60, balancing hit rate and speed; <em>Tier 2</em>:
+dfire2 with top-5 = 0.40 but slowest (26.7 s); <em>Tier 3</em>: sd, pisa, mj3h,
+tobi, sipper with top-5 = 0 (although tobi's top-100 reaches 0.34 and
+mj3h/pisa's top-50 still emits 0.02–0.29 of signal, suggesting occasional
+hits appear at wider top-N under small sampling); <em>zero-hit</em>: vdw (purely
+repulsive, 3.2 s) and cpydock (post-docking refinement use, 10.1 s). The speed
+spectrum spans 0.2 s (mj3h) ~ 26.7 s (dfire2). fastdfire is the best
+hit-rate-vs-speed trade-off and coincides with the official LightDock default.</p>
+<p><strong>Table 5.</strong> Top-5 success rate and wall-clock time of 10 scoring functions on
+2X9A (10×50×100, macOS arm64; sorted by top-5 descending).</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>top-5</th>
+<th>top-100</th>
+<th>Wall-clock (s)</th>
+<th>Tier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>fastdfire</td>
+<td>0.60</td>
+<td>0.14</td>
+<td>11.7</td>
+<td>Tier 1 (best hit+speed)</td>
+</tr>
+<tr>
+<td>dfire</td>
+<td>0.60</td>
+<td>0.14</td>
+<td>12.9</td>
+<td>Tier 1</td>
+</tr>
+<tr>
+<td>dfire2</td>
+<td>0.40</td>
+<td>0.34</td>
+<td>26.7</td>
+<td>Tier 2 (medium hit, slowest)</td>
+</tr>
+<tr>
+<td>sd</td>
+<td>0.00</td>
+<td>0.01</td>
+<td>11.5</td>
+<td>Tier 3 (occasional top-100)</td>
+</tr>
+<tr>
+<td>pisa</td>
+<td>0.00</td>
+<td>0.19</td>
+<td>4.6</td>
+<td>Tier 3</td>
+</tr>
+<tr>
+<td>mj3h</td>
+<td>0.00</td>
+<td>0.05</td>
+<td>0.2</td>
+<td>Tier 3 (fastest)</td>
+</tr>
+<tr>
+<td>tobi</td>
+<td>0.00</td>
+<td>0.34</td>
+<td>1.4</td>
+<td>Tier 3 (strong top-100 signal)</td>
+</tr>
+<tr>
+<td>sipper</td>
+<td>0.00</td>
+<td>0.09</td>
+<td>1.8</td>
+<td>Tier 3</td>
+</tr>
+<tr>
+<td>vdw</td>
+<td>0.00</td>
+<td>0.00</td>
+<td>3.2</td>
+<td>Zero-hit (repulsion only)</td>
+</tr>
+<tr>
+<td>cpydock</td>
+<td>0.00</td>
+<td>0.00</td>
+<td>10.1</td>
+<td>Zero-hit (refinement use)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>(C) Application scenarios (size × speed × hit).</strong> Five representative systems
+(small PPI 2X9A at 1.2k atoms, mid PPI 2GAF at 6.1k, large PPI 3BIW at 5.8k,
+protein–DNA 1AZP at 1.6k, and antibody–antigen 3MXW at 4.6k) all complete
+without crash (Figure 4C). Small PPI top-5 = 0.60 is best; large PPI
+top-5 = 0.20; mid PPI / protein–DNA / Ab-Ag are hit-difficult under small
+sampling (top-5 = 0, occasional top-100 = 0.01 signal). Wall-clock time scales
+<strong>super-linearly</strong> with atom count: 2X9A (6.3 s) vs 2GAF (101 s) vs
+3BIW (78 s), consistent with an O(N²) pair-computation-dominated cost model.
+This implies virus-scale complexes (&gt;10⁴ atoms) require proportionally larger
+sampling budgets and/or more parallel swarms, not serial scaling.</p>
+<p><strong>Summary.</strong> LKlight is <strong>100% crash-free</strong> across the 3-D grid of 5 parameter
+tiers × 10 scoring functions × 5 application scenarios, and behaves in line with
+theoretical expectations: (i) under fixed surface points, parameter tiers do
+not affect hit rate; (ii) scoring functions exhibit a clear hit-vs-speed
+trade-off; (iii) runtime scales super-linearly with system size. Together these
+support LKlight's robustness as a production docking engine. See raw data in
+<code>verify_equivalence/system_tests/</code>.</p>
+<p><img alt="Figure 4" src="figures/fig3_system_tests.png"></p>
+<h3 id="35-extended-robustness-sweep-parameter-scaling-cross-complex-scoring-and-biomedical-scenarios">3.5 Extended robustness sweep: parameter scaling, cross-complex scoring, and biomedical scenarios</h3>
+<p>To complement the controlled 2X9A tests of §3.4 with <em>cross-complex</em> generality,
+we ran a second validation campaign (v1.1.0) comprising (i) a parameter-scaling
+sweep, (ii) a native-pose scoring matrix over six biomolecular complexes, and
+(iii) full GSO docking on four biomedical scenarios. All runs are single-swarm
+on macOS arm64 (Apple M4); initial positions from the shared <code>setup</code> stage.</p>
+<p><strong>(A) Parameter scaling is linear; 100 steps is the practical convergence
+point.</strong> Sweeping glowworms <em>g</em> ∈ {25, 50, 100, 200, 400} at 100 steps and steps
+∈ {10, 25, 50, 100, 200} at <em>g</em> = 200 (1AZP, pydock and dfire) shows
+near-linear wall-clock growth in both dimensions (Figure 5A/B), consistent with
+the O(g · pair-evals) per-step cost of GSO. Short-cutoff dfire runs one order of
+magnitude faster than pydock throughout (0.05–0.68 s vs 0.87–14.1 s). Combined
+with the within-run convergence trajectory (best swarm score plateaus after
+50–70 steps), these results confirm the <em>g</em> = 200 / 100-step default as the
+cost-effectiveness knee: larger budgets only re-sample without quality gain,
+matching the tier-sweep finding of §3.4(A).</p>
+<p><img alt="Figure 5" src="figures/fig4_param_scaling.png"></p>
+<p><strong>(B) Native-pose scores across six complexes: 12 functions × 6 systems.</strong>
+Table 6 and Figure 6 report the native-pose <code>score</code>-module outputs of 12
+scoring functions on six complexes spanning protein–DNA (1AZP, 1DIZ p53 core
+domain–DNA), protein–protein (2OOB), antibody–protein antigen (1VFB), antibody–
+peptide (1DQJ) and viral–host (6M0J SARS-CoV-2 RBD–hACE2) interfaces. All 72
+combinations complete without panic or timeout (8–260 ms each). Score
+sign/magnitude follow each function's convention: electrostatic/desolvation
+families (pydock, cpydock, dfire2, dna) yield strongly negative values on large
+interfaces; contact potentials (mj3h, pisa, sipper, tobi) stay near zero; the
+ASA-weighted solvation term sd is strongly positive on unminimized native poses
+(order 10²–10⁹, except the DNA-ligand artifact noted in Table 6), so only
+within-function comparisons are meaningful. On the p53–DNA
+system, protein-only potentials (mj3h, sd, vdw, pisa, sipper, tobi) evaluate to
+exactly 0.0 — their atom-type dictionaries contain no nucleotide entries —
+which delimits the correct tooling: protein–nucleic acid interfaces require the
+<code>dna</code>/<code>ddna</code> families. This campaign also surfaced the DFIRE2 empty-dictionary
+panic (§2.5, Fix 5), now fixed and regression-tested. Because raw score scales
+and sign conventions differ across functions, Figure 6 renders each row min–max
+normalized within its own function (sequential YlOrRd colormap; darker = higher
+within the row), so colours are compared only within a row and raw values are
+printed in every cell.</p>
+<p><strong>Table 6.</strong> Native-pose scores of 12 scoring functions on six biomolecular
+complexes (LKlight v1.1.0 <code>score</code> module; each cell one evaluation, 8–260 ms).
+Row-wise conventions differ; compare only within a row. 0.0: function evaluated
+to zero on this complex (no atom-type coverage, see text). † dfire yields the
+constant 4.70 on the two DNA complexes because its atom-type dictionary lacks
+nucleotides: with all ligand atoms skipped, the raw sum is zero and its
+normalization offset (−4.7) produces this constant — treat those cells as
+'no coverage'. ‡ The sd term is strongly positive on unminimized native poses
+for protein partners, but 1AZP's DNA ligand lacks ASA coverage and yields an
+out-of-range negative value (−2.4×10⁹); both are artifacts of partner-type
+coverage, not of the scoring engine. § The near-identity of <code>dna</code> and <code>pydock</code>
+(the same on 4/6 complexes; deviations ≤ 0.2% on the p53–DNA and RBD–hACE2
+rows) is expected behavior, not a bug: upstream, <code>dna</code> is defined as the
+pyDockDNA scoring function (no desolvation, custom Van der Waals weights for
+protein–DNA docking) and shares pydock's Coulomb + Lennard-Jones framework;
+the two implementations diverge only through <code>dna</code>'s DNA-specific residue/atom
+translation (HIS→HID, THY→DT, etc.) and rare-element fallback entries, which
+leave standard protein-only interfaces numerically indistinguishable.</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>1AZP (rec–DNA)</th>
+<th>2OOB (PPI)</th>
+<th>1DIZ p53–DNA</th>
+<th>1VFB Ab–lysozyme</th>
+<th>1DQJ Ab–peptide</th>
+<th>6M0J RBD–hACE2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dfire</td>
+<td>4.70</td>
+<td>16.75</td>
+<td>4.70</td>
+<td>24.60</td>
+<td>32.65</td>
+<td>30.92</td>
+</tr>
+<tr>
+<td>dfire2</td>
+<td>−83.70</td>
+<td>−184.96</td>
+<td>−526.77</td>
+<td>−605.31</td>
+<td>−970.68</td>
+<td>−1557.99</td>
+</tr>
+<tr>
+<td>dna</td>
+<td>−364.88</td>
+<td>−517.36</td>
+<td>−23.87</td>
+<td>−653.26</td>
+<td>−4734.20</td>
+<td>−2222.00</td>
+</tr>
+<tr>
+<td>ddna</td>
+<td>6.32</td>
+<td>6.41</td>
+<td>5.47</td>
+<td>7.50</td>
+<td>8.37</td>
+<td>8.11</td>
+</tr>
+<tr>
+<td>pydock</td>
+<td>−364.88</td>
+<td>−517.36</td>
+<td>−23.71</td>
+<td>−653.26</td>
+<td>−4734.20</td>
+<td>−2218.65</td>
+</tr>
+<tr>
+<td>cpydock</td>
+<td>9.06</td>
+<td>−542.55</td>
+<td>−23.71</td>
+<td>−745.12</td>
+<td>−4841.90</td>
+<td>−2269.25</td>
+</tr>
+<tr>
+<td>sd</td>
+<td>−2.4×10⁹</td>
+<td>305.55</td>
+<td>0.0</td>
+<td>1356.91</td>
+<td>651.93</td>
+<td>489.53</td>
+</tr>
+<tr>
+<td>vdw</td>
+<td>−428.77</td>
+<td>28.66</td>
+<td>0.0</td>
+<td>81.73</td>
+<td>101.72</td>
+<td>63.99</td>
+</tr>
+<tr>
+<td>mj3h</td>
+<td>0.0</td>
+<td>2.89</td>
+<td>0.0</td>
+<td>1.15</td>
+<td>1.44</td>
+<td>1.28</td>
+</tr>
+<tr>
+<td>pisa</td>
+<td>0.0</td>
+<td>0.18</td>
+<td>0.0</td>
+<td>−0.12</td>
+<td>−0.09</td>
+<td>0.32</td>
+</tr>
+<tr>
+<td>sipper</td>
+<td>0.0</td>
+<td>0.39</td>
+<td>0.0</td>
+<td>−3.82</td>
+<td>−3.20</td>
+<td>−1.35</td>
+</tr>
+<tr>
+<td>tobi</td>
+<td>0.0</td>
+<td>8.99</td>
+<td>0.0</td>
+<td>28.69</td>
+<td>35.01</td>
+<td>31.65</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Figure 6" src="figures/fig5_score_matrix.png"></p>
+<p><strong>(C) Full docking on biomedical scenarios.</strong> Four complexes representing
+active research use cases — p53 tumor-suppressor core domain–response-element
+DNA (cancer hot-spot studies), antibody–lysozyme and antibody–HIV-peptide
+(antibody engineering / epitope studies), and SARS-CoV-2 RBD–hACE2 (variant
+interface studies) — were docked end-to-end (<em>g</em> = 200, 100 steps; Table 7,
+Figure 7). All runs complete in 0.07–134 s per swarm; even the largest interface
+(RBD–hACE2, ~5k receptor atoms) finishes in about two minutes, confirming that
+batch rescoring of variant panels is practical on a laptop-class machine. Best
+interface scores after GSO are strongly negative for the electrostatic-family
+functions (e.g. cpydock −3301 on RBD–hACE2), and the <code>dna</code> function shows clear
+convergence on p53–DNA (−863), consistent with its design intent.</p>
+<p><strong>Table 7.</strong> Multi-scenario docking wall-clock and best interface score
+(1 swarm, <em>g</em> = 200, 100 steps, LKlight v1.1.0, macOS arm64).</p>
+<table>
+<thead>
+<tr>
+<th>Scenario (PDB)</th>
+<th>Atoms (rec+lig)</th>
+<th>Function</th>
+<th>Wall-clock (s)</th>
+<th>Best score</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>p53–DNA (1DIZ)</td>
+<td>2.8k</td>
+<td>dna</td>
+<td>6.2</td>
+<td>−863.2</td>
+</tr>
+<tr>
+<td>p53–DNA (1DIZ)</td>
+<td></td>
+<td>ddna</td>
+<td>2.2</td>
+<td>+7.40</td>
+</tr>
+<tr>
+<td>p53–DNA (1DIZ)</td>
+<td></td>
+<td>cpydock</td>
+<td>9.8</td>
+<td>−851.4</td>
+</tr>
+<tr>
+<td>Ab–lysozyme (1VFB)</td>
+<td>3.5k</td>
+<td>pydock</td>
+<td>24.9</td>
+<td>−523.8</td>
+</tr>
+<tr>
+<td>Ab–lysozyme (1VFB)</td>
+<td></td>
+<td>cpydock</td>
+<td>30.8</td>
+<td>−246.6</td>
+</tr>
+<tr>
+<td>Ab–lysozyme (1VFB)</td>
+<td></td>
+<td>vdw</td>
+<td>7.9</td>
+<td>−296.7</td>
+</tr>
+<tr>
+<td>Ab–peptide (1DQJ)</td>
+<td>4.8k</td>
+<td>pydock</td>
+<td>38.9</td>
+<td>−7554.1</td>
+</tr>
+<tr>
+<td>Ab–peptide (1DQJ)</td>
+<td></td>
+<td>cpydock</td>
+<td>63.0</td>
+<td>−6584.7</td>
+</tr>
+<tr>
+<td>RBD–hACE2 (6M0J)</td>
+<td>6.6k</td>
+<td>pydock</td>
+<td>120.2</td>
+<td>−2742.0</td>
+</tr>
+<tr>
+<td>RBD–hACE2 (6M0J)</td>
+<td></td>
+<td>cpydock</td>
+<td>134.3</td>
+<td>−3300.9</td>
+</tr>
+<tr>
+<td>RBD–hACE2 (6M0J)</td>
+<td></td>
+<td>dfire</td>
+<td>67.0</td>
+<td>−66.8</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Figure 7" src="figures/fig6_scenario_runtime.png"></p>
+<p><strong>Summary.</strong> Across the extended sweep (parameter grid × 12 functions × 6
+complexes × 4 full dockings), LKlight v1.1.0 completes every run without crash
+or timeout. The empirical scaling laws — linear in <em>g</em> and steps, one order of
+magnitude between short- and long-cutoff functions, ~2 minutes for a 6.6k-atom
+viral–host interface — give practitioners a direct budget calculator, and the
+score matrix clarifies which function families are applicable to which partner
+types. Raw data: <code>lklight_test_suite/</code> (companion repository).</p>
+<h3 id="36-three-engine-comparison-on-the-extended-scenarios">3.6 Three-engine comparison on the extended scenarios</h3>
+<p>The parameter/scenario sweep of §3.4–3.5 characterizes LKlight in isolation; to
+quantify its advantage <em>against both baselines on the same footing</em>, we ran the
+official Python engine (LightDock 0.9.4) and the official Rust baseline
+(v0.3.2, unmodified upstream checkout) on two of the §3.5 scenarios (single
+swarm, 200 glowworms, 100 steps, mean of 3 runs, Mac mini M4). Table 8 and
+Figure 8 extend Table 3 with the dna+ANM and pyDock-family scenarios: LKlight
+is 3.5–3.6× faster than the official Rust baseline and 12.5–13.6× faster than
+the Python engine, consistent with the Table 3 ratios within run-to-run
+variance (≤ ~15% on this machine), cross-validating the two campaigns.
+Nomenclature: the Python engine exposes this scenario's scoring as <code>cpydock</code>
+(Table 3), while the official Rust baseline accepts only <code>pydock</code> for the
+pyDock family; Table 8 therefore lists the scenario once and reports each
+engine under its own method name. Two Table 3 entries are superseded by this
+re-measurement: the 1AZP dna+ANM baseline time (13.17 s, was CRASH) and the
+pyDock-family baseline time (8.71 s, was 7.57 s); run-to-run variance on this
+machine is ≤ ~15%.</p>
+<p><strong>Table 8.</strong> Three-engine wall-clock comparison on the extended scenarios
+(single swarm, 200 glowworms, 100 steps, mean of 3 runs, Mac mini M4 10-core;
+official Rust invoked via its <code>pydock</code> method, Python via <code>cpydock</code>/<code>dna</code>).</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Python 0.9.4 (s)</th>
+<th>Official Rust v0.3.2 (s)</th>
+<th>LKlight (s)</th>
+<th>LKlight/Py</th>
+<th>LKlight/Official</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1AZP dna + ANM</td>
+<td>50.35</td>
+<td>13.17</td>
+<td>3.69</td>
+<td>13.6×</td>
+<td>3.6×</td>
+</tr>
+<tr>
+<td>1PPE pyDock family</td>
+<td>31.17</td>
+<td>8.71</td>
+<td>2.50</td>
+<td>12.5×</td>
+<td>3.5×</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Figure 8" src="figures/fig7_tri_engine.png"></p>
+<p>Two baseline behaviors deserve explicit note, since they delimit what "the
+official Rust engine" means in practice. First, the baseline accepts only the
+method names <code>dfire</code>, <code>dna</code> and <code>pydock</code>; <code>cpydock</code>, <code>vdw</code> and all other
+function names abort at startup with <code>method not supported</code>, and <code>dfire</code>
+additionally panics unless an external <code>DCparams</code> file is provided through the
+<code>LIGHTDOCK_DATA</code> environment variable — the Table 3 CRASH entry. With the
+data file hand-supplied, the baseline reproduces its README anchor (1PPE dfire
+≈ 4.3 s), i.e. the anchor timing presupposes a manual configuration step that a
+default installation does not satisfy, whereas LKlight embeds all parameters.
+Second, where the baseline does run, it is consistently 3.5–3.6× slower than
+LKlight on identical hardware, confirming that LKlight's advantage over the
+Rust baseline is algorithmic (parallel + SIMD-friendly kernels), not merely an
+artifact of the missing-parameter crashes.</p>
+<hr>
+<h3 id="37-interface-quality-indicators-an-anm-control-and-replicated-runs">3.7 Interface-quality indicators, an ANM control, and replicated runs</h3>
+<p>§3.3 reports success rates against native structures; this section adds the
+complementary evidence that reviews of docking work expect — per-model standard
+indicators, a controlled test of the ANM term on a protein–DNA target, and
+replicated runs with statistical tests.</p>
+<p><strong>System and reference.</strong> 1AZP is the hyperthermophile chromosomal protein
+Sac7d bound to a kinked DNA duplex, the protein–DNA system already used in
+§3.4(C) and §3.5. Chain A (66 residues, 673 heavy atoms) is the protein
+receptor; chains B and C (16 residues, 362 heavy atoms) form the DNA ligand.
+Splitting the bound complex yields 43 inter-molecular residue–residue contacts
+(any heavy-atom pair within 5 Å) and an interface of 42 protein + 15 DNA
+residues (10 Å). Re-scoring the bound complex itself through the evaluation
+pipeline returns Fnat = 1.000, L-RMSD = 0.00 Å, iRMSD = 0.00 Å, DockQ = 1.000,
+CAPRI "high", which validates the metric implementation before use. The pooled indicator pipeline deduplicates the ranking files by decoy (<code>lklight rank</code> appends cumulatively across swarms), so every statistic below is computed over the full unique 2,000-pose ensemble.</p>
+<p><strong>Protocol.</strong> Blind docking: receptor and ligand are separated, surface points
+are generated from scratch (seed 324324) and GSO runs 10 swarms × 200 glowworms
+× 200 steps with the <code>dna</code> family. All 2,000 predicted poses are written to disk
+and scored against the bound reference. The whole ensemble takes ≈ 14 s on the
+Metal GPU build and ≈ 17 s (without ANM) / ≈ 35 s (with ANM) on the CPU grid
+path, which makes a controlled ANM comparison affordable.</p>
+<p><strong>Result 1 — the native interface is not sampled at this budget.</strong> Not one of
+the 2,000 decoys is CAPRI-acceptable; the single best pose of the entire
+ensemble reaches L-RMSD = 17.2 Å (Fnat = 0.26, DockQ = 0.154) without ANM. Since
+the same ensemble can be re-ranked by ground-truth L-RMSD — an <em>oracle</em> ranking
+— sampling can be separated from scoring: even a perfect ranker cannot extract
+an acceptable model from this ensemble (Figure 9B). The shortfall is therefore a
+property of the sampling budget, not of the scoring function or of the ranking
+step, and it is consistent with the reduced-sampling caveats already attached to
+the Benchmark 5 campaign (§3.3). We report this negative result because it delimits what this paper claims.</p>
+<p><strong>Result 2 — the ANM term nudges the sampled ensemble, modestly.</strong> With identical
+initial positions, seed and budget, switching the ANM term on improves the best sampled pose slightly: L-RMSD 17.18 → 17.13 Å, Fnat 0.256 → 0.302, DockQ 0.154 → 0.170, and raises the number of decoys making at least one native contact from 396 to 517 out of 2,000 (Table 9, Figure 9). The direction is the expected one — backbone flexibility lets the DNA explore the kinked binding groove — but the magnitude is small, and neither configuration reaches a CAPRI-acceptable pose. This
+closes limitation (vi) of §4.3: the protein–DNA scenario of §3.4(C) is here
+extended with the dedicated <code>dna</code>+ANM evaluation previously left as future
+work, and it remains the case that the 1AZP reduction is a hard, sampling-
+limited target at this budget.</p>
+<p><strong>Table 9.</strong> Protein–DNA case study (1AZP, Sac7d–DNA). Blind docking, 10
+swarms × 200 glowworms × 200 steps, <code>dna</code> family, identical seed and initial
+positions; 2,000 predicted poses per configuration, scored against the bound
+complex (43 native residue–residue contacts). "Best pose" is the pose with the
+lowest L-RMSD anywhere in the ensemble (the sampling ceiling); "oracle" is the
+CAPRI-acceptable count obtained with a perfect L-RMSD ranking.</p>
+<table>
+<thead>
+<tr>
+<th>Quantity</th>
+<th>ANM off</th>
+<th>ANM on</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Best-pose Fnat</td>
+<td>0.256</td>
+<td><strong>0.302</strong></td>
+</tr>
+<tr>
+<td>Best-pose L-RMSD (Å)</td>
+<td>17.18</td>
+<td><strong>17.13</strong></td>
+</tr>
+<tr>
+<td>Best-pose iRMSD (Å)</td>
+<td>14.84</td>
+<td><strong>14.80</strong></td>
+</tr>
+<tr>
+<td>Best-pose DockQ</td>
+<td>0.154</td>
+<td><strong>0.170</strong></td>
+</tr>
+<tr>
+<td>Best-pose CAPRI class</td>
+<td>Incorrect</td>
+<td>Incorrect</td>
+</tr>
+<tr>
+<td>Decoys with ≥ 1 native contact</td>
+<td>396</td>
+<td>517</td>
+</tr>
+<tr>
+<td>CAPRI-acceptable, scoring-ranked (top-100 / all 2,000)</td>
+<td>0 / 0</td>
+<td>0 / 0</td>
+</tr>
+<tr>
+<td>CAPRI-acceptable, oracle (all 2,000)</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Wall-clock, 2,000 poses (CPU grid)</td>
+<td>16.9 s</td>
+<td>34.9 s</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Figure 9" src="figures3/fig_pd_indicators.png"></p>
+<p><strong>Result 3 — replicated runs and statistics.</strong> Two replication experiments back
+the equivalence and the timing claims. (a) <em>Timing.</em> Five repeated runs of the
+same 1-swarm job on the Mac mini M4 give a median of 2.12 s (range 2.02–5.42 s)
+for the reference engine and 2.32 s (range 2.12–3.31 s) for the CPU grid path;
+the dispersion is dominated by the first two runs of each engine, which pay
+cold-start costs (page cache and thread-pool warm-up), and the steady-state
+spread is ≈ 5%. Every one of the ten runs returned the same best energy
+(36.04905654). Peak resident memory for the same job, measured with
+/usr/bin/time -l, is 27 MB for both CPU builds and 75 MB for the Metal GPU
+build (1AZP, 100 glowworms × 100 steps). (b) <em>Starting conditions.</em> Six replicate runs were generated by
+perturbing the initial positions (translations ±3 Å, rotations ≤ 0.15 rad) and
+both engines were re-run on each replicate: the paired best energies are
+equal to all printed digits in all six (17.2128944, 27.84526255, −168.47149756, 33.60150435,
+8.69714037, 23.77950917; max |Δ| = 0.0), and a Wilcoxon signed-rank test finds
+no difference (p = 1.0). Within the precision of the engine's output, the
+optimised implementation reproduces the reference arithmetic irrespective of
+where the GSO starts.</p>
+<h3 id="38-comparison-with-the-original-lightdock-and-with-mainstream-docking-programs">3.8 Comparison with the original LightDock and with mainstream docking programs</h3>
+<p><strong>Head-to-head with the original LightDock.</strong> The only fully fair comparison
+available is against the upstream implementation of the same protocol, and it
+is the one this work makes in both directions: (i) on 30 Benchmark 5 complexes
+the two engines share the same initial positions and parameters, and their mean
+CAPRI top-N success-rate curves differ by ≤ 0.02 with non-significant paired
+tests (§3.3); and (ii) on the 1AZP protein–DNA scenario the Python engine and
+LKlight run the same job in 50.35 s and 3.69 s (13.6×), with LKlight 3.5–3.6×
+faster than the official Rust baseline where that baseline runs at all (§3.6,
+Table 8). The comparison carries no confounding factor: identical algorithm,
+identical scoring functions, identical inputs — only the implementation differs.</p>
+<p><strong>Contextual positioning against other programs.</strong> A head-to-head run against a
+third-party docking program was <strong>not</strong> performed for this study, and we state
+why rather than presenting an unfair number. The established programs differ
+from LightDock in ways that make a single-number comparison meaningless: they
+search a different space (ZDOCK [25] and ClusPro [22] are FFT-based rigid-body
+searches on a grid; HADDOCK [24] is data-driven and requires experimental
+restraints; HDOCK [23] is a hybrid template/FFT strategy), they apply different
+post-processing (ClusPro clusters and refines with short molecular dynamics runs;
+HDOCK re-ranks by a different potential), and most are distributed as
+web services with their own benchmark protocols, so their published success
+rates are not transferable to a local run on 30 complexes at a reduced budget.
+Table 10 therefore tabulates <em>method characteristics</em>, not scores, so that the
+reader can place LKlight correctly.</p>
+<p><strong>Table 10.</strong> Contextual positioning of LKlight among established docking
+programs. Rows are descriptive characteristics taken from the cited
+publications; no head-to-head run was performed (see text) and no ranking across
+programs is implied.</p>
+<table>
+<thead>
+<tr>
+<th>Program</th>
+<th>Method class</th>
+<th>Degrees of freedom</th>
+<th>Scoring</th>
+<th>Refinement / flexibility</th>
+<th>Input</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LightDock / <strong>LKlight</strong></td>
+<td>GSO metaheuristic (multi-scale)</td>
+<td>rigid-body 6-DOF</td>
+<td>12 pairwise potentials (incl. DAN-based <code>dna</code>)</td>
+<td>ANM main-chain flexibility</td>
+<td>PDB; optional restraints</td>
+</tr>
+<tr>
+<td>ZDOCK [25]</td>
+<td>FFT rigid-body</td>
+<td>6-DOF on a grid</td>
+<td>shape + electrostatics + desolvation</td>
+<td>optional</td>
+<td>PDB</td>
+</tr>
+<tr>
+<td>ClusPro [22]</td>
+<td>FFT + clustering + refinement</td>
+<td>6-DOF + flexible refinement</td>
+<td>PIPER (shape, elec, desolvation)</td>
+<td>short MD refinement</td>
+<td>PDB</td>
+</tr>
+<tr>
+<td>HADDOCK [24]</td>
+<td>data-driven (CNS)</td>
+<td>rigid-body + semi-flexible</td>
+<td>restraint-driven</td>
+<td>fully flexible refinement</td>
+<td>PDB + experimental restraints</td>
+</tr>
+<tr>
+<td>HDOCK [23]</td>
+<td>hybrid template/FFT</td>
+<td>6-DOF (+ template)</td>
+<td>shape + elec + desolvation</td>
+<td>optional</td>
+<td>PDB (+ template library)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What follows for this paper's claims.</strong> The engine-level equivalence and
+speedups stand on their own measurements. What is <em>not</em> claimed — and what the
+reader should not infer from a speedup — is that LKlight samples binding poses
+better than other programs, or that it improves on LightDock's own sampling
+power. Establishing that requires the full-scale benchmark campaign described
+in §4.4.</p>
+<hr>
+<h2 id="4-discussion">4 Discussion</h2>
+<h3 id="41-when-do-spatial-grids-help-a-quantitative-rule">4.1 When do spatial grids help? A quantitative rule</h3>
+<p>Our optimization history provides a clean, transferable engineering result:
+spatial indexing pays off only when the interaction cutoff is genuinely sparse
+relative to system size (<code>r_cut / r_protein ≲ 0.3</code>). For PyDock's 30 Å
+electrostatics cutoff on a 221-atom ligand, the grid's 343 hash lookups per
+receptor atom cost ~38× more than the direct pair traversal they replace; the
+same mechanism explains DFIRE's 15 Å grid regression. Short-cutoff kernels (SD,
+9 Å) remain grid-accelerated with true O(N²)→O(N) behavior. This negative result,
+rare in the literature, should guide future docking-engine engineering away from
+naive grid adoption.</p>
+<h3 id="42-relationship-to-the-official-rust-engine">4.2 Relationship to the official Rust engine</h3>
+<p>LKlight is a derivative work under GPL-3.0 and a <em>complement</em> to, not a
+replacement of, the official LightDock ecosystem [1,2,11]. Where the official NAR
+2023 report claims optimal speed and performance for its Rust rewrite without
+reporting quantitative data, LKlight provides the missing measurements; where
+the official Rust engine covers 2 of 12 scoring functions, LKlight completes the
+set; where the official baseline carries latent defects, LKlight fixes them and
+ships a test harness. We explicitly do not claim improved predictive accuracy:
+the LightDock protocol's predictive performance is established in [1,2], and
+LKlight preserves it (Section 3.3).</p>
+<h3 id="43-limitations">4.3 Limitations</h3>
+<p>(i) Benchmarks are single-node CPU; the CPU-grid and GPU (CUDA, and Apple-Silicon Metal) execution paths built on this engine are reported in the accompanying GPU manuscript.
+Deep-learning integration is out of scope. (ii) The ANM path is covered by
+correctness tests and the dna+ANM benchmark, but its docking accuracy is not
+separately re-validated on a flexible-set benchmark. (iii) The
+accuracy-equivalence study uses 30 Benchmark 5 complexes with reduced sampling
+(10×50 vs the official 400×200); absolute success rates are lower than the
+official protocol, and the comparison, not the absolute numbers, is the claim;
+in 12 of the 30 complexes neither engine scores a top-100 hit, reflecting the
+coverage limit of reduced sampling on hard cases.
+(iv) Multi-chain and membrane protocols are not yet exercised.
+(v) The system robustness tests (§3.4) also use reduced sampling; their purpose
+is to delineate engine behavior, not absolute performance.
+(vi) In the §3.4(C) protein–DNA scenario (1AZP) the dna scoring function was run
+without ANM, which explains the zero top-5 hit; the dedicated dna+ANM
+evaluation is reported in §3.7 (Table 9), where enabling ANM slightly improves the best sampled pose (L-RMSD 17.18 → 17.13 Å, DockQ 0.154 → 0.170) but still does not reach a CAPRI-acceptable pose at the 10 × 200 budget.
+(vii) The interface-quality indicators of §3.7 are reported for one protein–DNA
+target (1AZP); they are a case study, not a protein–DNA benchmark, and no
+protein–DNA success rate is claimed.
+(viii) No head-to-head run against a third-party docking program was performed;
+§3.8 positions LKlight against ZDOCK/ClusPro/HADDOCK/HDOCK descriptively
+(method characteristics, not scores) and explains why a single-number
+comparison at this sampling budget would not be fair. A runnable head-to-head
+against an open-source third-party engine remains future work.
+(ix) The Benchmark 5 campaign covers 30 complexes at a reduced sampling budget
+(§3.3); the claim it supports is the <em>equivalence</em> of the two engines, not an
+absolute success rate, and no statement about state-of-the-art docking accuracy
+follows from it.
+(x) The speedups of Tables 3 and 7–8 are measured with the optimisations acting
+together; the individual contribution of each tier (rayon parallelism,
+SIMD-friendly layout, scratch-buffer reuse, I/O batching) is not separately
+ablated, and thread-scaling efficiency beyond the default configuration is not
+characterised.</p>
+<h3 id="44-future-work">4.4 Future work</h3>
+<p>Three benchmark-level extensions follow directly from the limitations above and
+are the natural next step for this line of work: (i) the full Benchmark 5.5 set
+(230 targets) at the official 400 × 200 sampling budget, reported with the
+per-target CAPRI/DockQ indicators of §3.7 so that absolute success rates — and
+not only engine equivalence — can be quoted; (ii) a protein–DNA benchmark with
+the same indicator panel, extending the single 1AZP case study; and (iii) a
+head-to-head run against at least one open-source third-party docking engine at
+matched sampling, which §3.8 deliberately leaves out.</p>
+<p>On the software side: information-driven docking (restraints, pre-orientation)
+alignment with LightDock 2.0 [2], and integration with the LKDock desktop
+platform as a production PPI engine. Three near-term directions follow current research
+fronts: (i) an AI-pose <em>rescoring</em> pipeline, in which LKlight re-scores and
+locally re-optimizes predicted complex ensembles from AlphaFold3-class
+predictors; (ii) a mutation-site ΔΔE workflow, exploiting the 0.07–134 s
+per-swarm runtimes of §3.5 to estimate relative binding-energy changes across
+variant panels; and (iii) batched virus–host protein–protein interaction
+rescoring, for which the RBD–hACE2 result (~2 minutes per swarm on a laptop)
+establishes feasibility.</p>
+<hr>
+<h2 id="5-conclusion">5 Conclusion</h2>
+<p>LKlight is a complete and extensively benchmarked Rust engine for the LightDock docking protocol. It closes three gaps of the official Rust ecosystem:
+missing performance evidence, incomplete scoring-function coverage (2/12), and
+latent defects without a test harness. On identical hardware and parameters,
+LKlight is 13.0–107.5× faster than the Python engine on the benchmarked
+scenarios and fixes the official Rust baseline's startup failures on dfire
+and vdw (and is 3.5–3.6× faster than the baseline where it does run — dna
+and the pyDock family), while reproducing its docking accuracy across multiple
+scoring functions on Benchmark 5 systems. By embedding all parameter data into a
+single cross-platform binary, LKlight makes the full 12-scoring-function LightDock protocol practical for production, high-throughput, and reproducible docking workflows. Within the engine-level scope of this study, these results establish correctness and throughput parity or advantage — they do not by themselves establish improved blind-docking sampling power, which depends on the GSO protocol and the scoring functions rather than on the execution engine.</p>
+<hr>
+<h2 id="6-data-and-code-availability">6 Data and code availability</h2>
+<p>LKlight is open source under GPL-3.0-or-later (derivative of LightDock [1,11]):
+https://github.com/LK-Studio1128/LKlight: source, <code>cargo test --lib</code> suite, CI,
+prebuilt macOS/Linux/Windows binaries, and the equivalence-benchmark pipeline
+(<code>verify_equivalence/</code>) are in the repository. Release v1.1.0 is archived on
+Zenodo: <strong>DOI 10.5281/zenodo.22150513</strong> (concept DOI:
+10.5281/zenodo.22150512, which resolves to the latest version). The
+multi-scenario raw data of §3.5 (<code>lklight_test_suite/</code>) accompanies the
+companion repository. <strong>Reproduction bundle for this revision</strong> (deposited with
+the paper, <code>functest/</code> tree of the repository): (i) the CAPRI/DockQ evaluation
+scripts of §3.7 (<code>evaluation/dockq_eval.py</code>, <code>evaluation/eval_run.py</code>,
+<code>evaluation/fig_pd_indicators.py</code>), which use no third-party docking library;
+(ii) the bound 1AZP complex split into receptor and ligand together with the
+surface-point seed used to regenerate the initial positions
+(<code>e4_dna/native/</code>, seed 324324); (iii) the complete per-decoy metric tables for
+the four protein–DNA configurations (ANM on/off × protein-as-receptor and
+DNA-as-receptor), stored as <code>eval_metrics.csv</code> beside each run directory;
+(iv) the replicated-run artefacts of §3.7C — the five timing repeats and the six
+perturbed starting conditions with their paired best energies
+(<code>e2_stats/timing_repeat.json</code>, <code>e2_stats/seed_pairs.json</code>); and (v) the
+verbatim command lines and per-run wall-clock stamps used for Tables 3–10. All
+random seeds are fixed and written into the archived configuration files, so
+re-running the scripts against the archived inputs reproduces every number
+reported in this paper. Prebuilt binaries target macOS 11.0+ (Apple Silicon,
+arm64), any x86-64 Linux distribution (fully static musl build, no runtime
+dependencies) and Windows 10+ (x86-64, UCRT); the x86-64 Linux and Windows
+builds additionally require an AVX-capable CPU (2011 or later). Benchmark data
+from <code>lightdock_bm5</code> [18]; PDB structures from the RCSB PDB [19]. The current
+release tags are v1.2.0 (LKlight, LKlight-grid) and v1.2.2 (LKlight-GPU); the
+<code>pipeline</code> subcommand covers the setup → run → rank → generate workflow end to
+end. An accompanying GPU manuscript reports the CPU-grid and GPU (CUDA, and Apple-Silicon Metal) execution paths built on this engine (released from the same source tree as <code>LKlight-grid</code> and <code>LKlight-GPU</code>), together with their measured hardware and precision characterisation.</p>
+<h2 id="acknowledgements">Acknowledgements</h2>
+<p>LKlight builds upon the intellectual and engineering foundations of LightDock,
+developed by Brian Jiménez-García, Jorge Roel-Touris, and collaborators at the
+Barcelona Supercomputing Center, Spain. We gratefully acknowledge their
+development of the original LightDock framework [1,2] and the <code>lightdock-rust</code>
+Rust baseline, both released under GPL-3.0. The <code>rayon</code> parallel data processing
+library [16] and the Rust compiler's LLVM backend are essential enabling
+infrastructure for the performance results reported here.</p>
+<h2 id="author-contributions">Author contributions</h2>
+<p>Luo Xiaowen conceived and implemented LKlight, performed the benchmarks, and
+wrote the manuscript.</p>
+<h2 id="competing-interests">Competing interests</h2>
+<p>The author develops and makes the LKlight engine available as part of a commercial software product; this competing interest is disclosed here and did not influence the design, analysis or conclusions of the manuscript.</p>
+<hr>
+<h2 id="references">References</h2>
+<ol>
+<li>Jiménez-García B, Roel-Touris J, Romero-Durana M, et al. LightDock: a new multi-scale approach to protein–protein docking. <em>Bioinformatics.</em> 2018;34(1):49–55. doi:10.1093/bioinformatics/btx555</li>
+<li>Roel-Touris J, Bonvin AMJJ, Jiménez-García B. LightDock goes information-driven. <em>Bioinformatics.</em> 2020;36(3):950–952. doi:10.1093/bioinformatics/btz642</li>
+<li>Krishnanand KN, Ghose D. Glowworm swarm optimization for simultaneous capture of multiple local optima of multimodal functions. <em>Swarm Intell.</em> 2009;3(2):87–124. doi:10.1007/s11721-008-0021-5</li>
+<li>Zhou H, Zhou Y. Distance-scaled, finite ideal-gas reference state improves structure-derived potentials of mean force for structure selection and stability prediction. <em>Protein Sci.</em> 2002;11(11):2714–2726. doi:10.1110/ps.0217002</li>
+<li>Yang Y, Zhou Y. Specific interactions for ab initio folding of protein terminal regions with secondary structures. <em>Proteins.</em> 2008;72(2):793–803. doi:10.1002/prot.21968</li>
+<li>Cheng TM, Blundell TL, Fernandez-Recio J. pyDock: electrostatics and desolvation for effective scoring of rigid-body protein–protein docking. <em>Proteins.</em> 2007;68(2):503–515. doi:10.1002/prot.21419</li>
+<li>Viswanath S, Ravikant DVS, Elber R. Improving ranking of models for protein complexes with side chain modeling and atomic potentials. <em>Proteins.</em> 2013;81(4):592–606. doi:10.1002/prot.24214</li>
+<li>Pons C, Talavera D, de la Cruz X, et al. Scoring by intermolecular pairwise propensities of exposed residues (SIPPER): a new efficient potential for protein–protein docking. <em>J Chem Inf Model.</em> 2011;51(2):370–377. doi:10.1021/ci100353e</li>
+<li>Miyazawa S, Jernigan RL. Residue-residue potentials with a favorable contact pair term and an unfavorable high packing density term, for simulation and threading. <em>J Mol Biol.</em> 1996;256(3):623–644. doi:10.1006/jmbi.1996.0114</li>
+<li>Tobi D, Bahar I. Structural changes involved in protein binding correlate with intrinsic motions of proteins in the unbound state. <em>PNAS.</em> 2005;102(52):18908–18913. doi:10.1073/pnas.0507603102</li>
+<li>Jiménez-García B, Roel-Touris J, Barradas-Bautista D. The LightDock Server: Artificial Intelligence-powered modeling of macromolecular interactions. <em>Nucleic Acids Res.</em> 2023;51(W1):W298–W304. doi:10.1093/nar/gkad327</li>
+<li>Abramson J, Adler J, Dunger J, et al. Accurate structure prediction of biomolecular interactions with AlphaFold 3. <em>Nature.</em> 2024;630:493–500. doi:10.1038/s41586-024-07487-w</li>
+<li>Guest JD, Vreven T, Zhou H, et al. An expanded benchmark for antibody–antigen interaction. <em>Protein Eng Des Sel.</em> 2021;34:gzab019. doi:10.1093/protein/gzab019</li>
+<li>Atilgan AR, Durell SR, Jernigan RL, et al. Anisotropy of fluctuation dynamics of proteins with an elastic network model. <em>Biophys J.</em> 2001;80(1):505–515. doi:10.1016/S0006-3495(01)76033-X</li>
+<li>Matsakis ND, Klock FS. The Rust language. <em>ACM SIGAda Ada Letters.</em> 2014;34(3):103–104. doi:10.1145/2692956.2663188</li>
+<li>Matsakis ND, Stone J. Rayon: a data parallelism library for Rust. https://github.com/rayon-rs/rayon (accessed 2026).</li>
+<li>Lensink MF, Wodak SJ. Docking and scoring protein interactions: CAPRI 2009. <em>Proteins.</em> 2010;78(15):3073–3084. doi:10.1002/prot.22818</li>
+<li>Vreven T, Moal IH, Vangone A, et al. Updates to the integrated protein–protein interaction benchmarks: Docking Benchmark Version 5 and Affinity Benchmark Version 2. <em>J Mol Biol.</em> 2015;427(19):3031–3041. doi:10.1016/j.jmb.2015.07.016</li>
+<li>Berman HM, Westbrook J, Feng Z, et al. The Protein Data Bank. <em>Nucleic Acids Res.</em> 2000;28(1):235–242. doi:10.1093/nar/28.1.235</li>
+<li>Méndez R, Leplae R, De Maria L, Wodak SJ. Assessment of blind predictions of protein–protein interactions: current status of docking methods. <em>Proteins.</em> 2003;52(1):51–67. doi:10.1002/prot.10393</li>
+<li>Basu S, Wallner B. DockQ: a quality measure for protein–protein docking models. <em>PLoS ONE.</em> 2016;11(8):e0161879. doi:10.1371/journal.pone.0161879</li>
+<li>Kozakov D, Hall DR, Xia B, et al. The ClusPro web server for protein–protein docking. <em>Nat Protoc.</em> 2017;12(2):255–278. doi:10.1038/nprot.2016.169</li>
+<li>Yan Y, Zhang D, Zhou P, Li B, Huang SY. HDOCK: a web server for protein–protein and protein–DNA/RNA docking based on a hybrid strategy. <em>Nucleic Acids Res.</em> 2017;45(W1):W365–W373. doi:10.1093/nar/gkx407</li>
+<li>van Zundert GCP, Rodrigues JPGLM, Trellet M, et al. The HADDOCK2.2 web server: user-friendly integrative modeling of biomolecular complexes. <em>J Mol Biol.</em> 2016;428(4):720–725. doi:10.1016/j.jmb.2015.09.014</li>
+<li>Pierce BG, Wiehe K, Hwang H, Kim BH, Vreven T, Weng Z. ZDOCK server: interactive docking prediction of protein–protein complexes and symmetric multimers. <em>Bioinformatics.</em> 2014;30(12):1771–1773. doi:10.1093/bioinformatics/btu097</li>
+</ol>
+<hr>
+<h2 id="figure-legends">Figure legends</h2>
+<ul>
+<li><strong>Figure 1.</strong> Software architecture of LKlight. The unified command-line
+  interface sits on top of the GSO engine core and the <code>Score</code> trait, which is
+  implemented by 12 scoring families (4 all-atom, 8 statistical/table-based).
+  Beneath them the three execution paths — the reference all-pairs engine, the
+  CPU grid path and the GPU batch path of the companion manuscript — realise the
+  same scoring semantics, with automatic fallback to the CPU grid when no
+  compatible GPU is present or when ANM, restraints or membrane features are
+  used. The lower band summarises the numerical contract that ties the paths
+  together, and the reproduction bundle is part of the released repository.</li>
+<li><strong>Figure 2.</strong> Wall-clock times (log scale) of the Python engine (green),
+  the official Rust baseline (orange) and LKlight (blue) on four representative
+  docking scenarios (swarm_0, 100 steps, 200 glowworms, mean of 3 runs, Mac mini
+  M4 10-core, macOS arm64). Hatched grey bars labelled CRASH/N/S indicate
+  startup failures of the official Rust baseline (dfire: missing parameter
+  file, Fix 1; vdw: unsupported method name, Fix 2); bold numbers at the top of
+  each group are the LKlight/Python speedups.</li>
+<li><strong>Figure 3.</strong> Mean success-rate curves (top-N containing ≥1 acceptable CAPRI
+  model) for LKlight (blue) and the Python engine (green) over 30 BM5 complexes
+  (fastdfire; swarms=10, glowworms=50, official surface-point initial
+  positions). Shaded bands are 95% confidence intervals over the 30 cases; the
+  two curves differ by ≤ 0.02 at all top-N ranges.</li>
+<li><strong>Figure 4.</strong> Three-panel system-test summary of LKlight. (A) Parameter-tier
+  sweep: under fixed initial surface points, 5 tiers (10×50×100 → 25×200×300)
+  give the same success rates (blue gradient bars, left axis) with only
+  linearly growing wall-clock (black diamonds, right axis). (B) 10 scoring
+  functions on 2X9A ranked by top-5 success rate (viridis horizontal bars);
+  black ◆ marks wall-clock per run. (C) Five
+  representative application scenarios (small/mid/large PPI, protein–DNA,
+  antibody–antigen) plotted in size–time space on log-log axes; bubble size ∝
+  top-5 success rate, bubble colour = scenario type, dashed line marks the
+  O(N²) reference trend.</li>
+<li><strong>Figure 5.</strong> Parameter-scaling sweep on 1AZP (v1.1.0); wall-clock values
+  annotated at each point. (A) Wall-clock vs
+  glowworms <em>g</em> (25→400, 100 steps). (B)
+  Wall-clock vs GSO steps (10→200, <em>g</em> = 200). pydock (blue) and dfire
+  (vermilion) shown; the short-cutoff dfire runs one order of magnitude faster
+  throughout.</li>
+<li><strong>Figure 6.</strong> Native-pose score matrix of 12 scoring functions × six
+  biomolecular complexes (Table 6, visualized). Each row is min–max normalized
+  within that scoring function (0 = row minimum, 1 = row maximum) and rendered
+  with the sequential YlOrRd colormap, so colour is comparable across functions
+  with different score scales and sign conventions; darker = higher (less
+  favourable) within a row. "–" cells mark function–complex pairs without
+  nucleotide atom-type coverage (e.g. on 1DIZ).</li>
+<li><strong>Figure 7.</strong> Multi-scenario docking wall-clock (1 swarm, <em>g</em> = 200, 100
+  steps, log scale) across four biomedical complexes and six scoring functions
+  (Table 7, visualized); missing bars mark inapplicable function–partner
+  combinations. Method colours follow the same Okabe-Ito mapping as Figures 4–5.</li>
+<li><strong>Figure 8.</strong> Three-engine wall-clock comparison on the §3.6 scenarios (log
+  scale; 1 swarm, <em>g</em> = 200, 100 steps, mean of 3 runs, Mac mini M4 10-core,
+  macOS arm64). Numbers above bars give per-run seconds; boxed callouts mark the
+  LKlight speedups over the Python engine (blue) and the official Rust baseline
+  (orange).</li>
+<li><strong>Figure 9.</strong> Protein–DNA indicator case study (1AZP, Sac7d–DNA; §3.7).
+  (A) Distribution of ligand RMSD over the 2,000 pooled decoys for the ANM-off
+  (orange) and ANM-on (blue) configurations; dotted lines mark the CAPRI
+  L-RMSD thresholds (1/2/4 Å) and the arrow marks the best (sampling-ceiling)
+  pose of each ensemble. (B) Best DockQ inside the top-N decoys for the
+  scoring-based ranking (solid, what a run reports) and for the oracle ranking
+  by true L-RMSD (dashed, the sampling ceiling); the dotted horizontal line is
+  the DockQ value of a CAPRI-acceptable model, which neither configuration
+  reaches. (C) The lowest-L-RMSD decoy of each configuration superimposed on
+  the bound complex: protein atoms from the crystal structure (grey), native
+  DNA (black) and the best decoy DNA of each configuration (coloured),
+  visualising the ≈ 17 Å sampling gap quantified in (A).</li>
+</ul>
+<h2 id="supplementary">Supplementary</h2>
+<ul>
+<li><code>verify_equivalence/</code>: full reproducibility pipeline (scripts, config, per-model
+  CAPRI metrics) for the accuracy-equivalence experiments.</li>
+<li><code>verify_equivalence/bm5_30case/{summary,cumulative}.tsv</code>: per-complex
+  aggregated top-N success rates for the 30 BM5 cases.</li>
+<li><code>verify_equivalence/win_crossplat/REPORT.md</code>: Windows x86-64 cross-platform
+  GSO trajectory bit-identity validation report (110/110 checkpoints pass).</li>
+<li><code>verify_equivalence/system_tests/</code>: per-item TSVs and <code>report_data.json</code> for
+  the parameter-tier, scoring-function and application-scenario system tests.</li>
+<li>48/48 numerical comparison table per scoring function
+  (<code>benchmarks_raw/numeric_validation_raw.tsv</code>).</li>
+<li>Optimization timeline (appendix of the companion technical report).</li>
+</ul>
+</body></html>

@@ -1,0 +1,14 @@
+dfire    base= 0.038s grid= 0.040s speedup= 0.94x base_best=4.7 grid_best=4.7 best_delta=0.00e+00
+dfire2   base= 0.026s grid= 0.029s speedup= 0.88x base_best=-83.7 grid_best=-83.7 best_delta=0.00e+00
+dna      base= 0.554s grid= 1.155s speedup= 0.48x base_best=-3963.8 grid_best=-3956.9 best_delta=1.72e-03
+mj3h     base= 0.010s grid= 0.011s speedup= 0.90x base_best=-0.0 grid_best=-0.0 best_delta=0.00e+00
+pydock   base= 0.428s grid= 1.115s speedup= 0.38x base_best=-1146.5 grid_best=-1147.9 best_delta=1.18e-03
+cpydock  base= 0.698s grid= 1.435s speedup= 0.49x base_best=-88.8 grid_best=-92.4 best_delta=4.07e-02
+sd       base= 0.712s grid= 0.771s speedup= 0.92x base_best=-13064249623.2 grid_best=-13064249623.2 best_delta=0.00e+00
+vdw      base= 0.165s grid= 0.111s speedup= 1.49x base_best=-1219.1 grid_best=-1219.1 best_delta=0.00e+00
+pisa     base= 0.012s grid= 0.015s speedup= 0.81x base_best=-0.0 grid_best=-0.0 best_delta=0.00e+00
+sipper   base= 0.011s grid= 0.014s speedup= 0.79x base_best=-0.0 grid_best=-0.0 best_delta=0.00e+00
+tobi     base= 0.011s grid= 0.014s speedup= 0.79x base_best=-0.0 grid_best=-0.0 best_delta=0.00e+00
+ddna     base= 0.131s grid= 0.150s speedup= 0.87x base_best=5.4 grid_best=5.4 best_delta=0.00e+00
+
+Wrote /tmp/gso_full_05A_summary.csv

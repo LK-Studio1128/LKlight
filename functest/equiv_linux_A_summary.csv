@@ -1,0 +1,13 @@
+method,bit_identical,max_rel_dev,rmsd,spearman,pearson,kendall,verdict,n_valid
+dfire,True,0.0,0.0,nan,nan,nan,bit-identical,31
+dfire2,True,0.0,0.0,nan,nan,nan,bit-identical,31
+dna,False,0.08896396296947179,2.735420947860358,1.0,0.9999983044375979,1.0,CHECK,31
+mj3h,True,0.0,0.0,nan,nan,nan,bit-identical,31
+pydock,False,0.16084180683064134,2.735420919997708,1.0,0.9999807361192411,1.0,CHECK,31
+cpydock,False,2.405341656838763,2.735420904575582,0.9879032258064516,0.9965133912457087,0.9311827956989247,CHECK,31
+sd,True,0.0,0.0,1.0,1.0,1.0,bit-identical,29
+vdw,True,0.0,0.0,1.0,1.0000000000000002,1.0,bit-identical,29
+pisa,True,0.0,0.0,nan,nan,nan,bit-identical,31
+sipper,True,0.0,0.0,nan,nan,nan,bit-identical,31
+tobi,True,0.0,0.0,nan,nan,nan,bit-identical,31
+ddna,True,0.0,0.0,1.0,1.0,1.0,bit-identical,31

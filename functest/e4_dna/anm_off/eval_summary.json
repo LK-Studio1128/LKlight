@@ -1,0 +1,237 @@
+{
+ "run_dir": "anm_off",
+ "n_decoys": 2000,
+ "native_pairs": 43,
+ "interface_residues": {
+  "receptor": 42,
+  "ligand": 15
+ },
+ "acceptable_in_pool": 0,
+ "decoys_with_contacts": 396,
+ "sampling_ceiling": {
+  "lrmsd": 17.176924809914777,
+  "fnat": 0.2558139534883721,
+  "irmsd": 14.839891146400353,
+  "dockq": 0.15421166729017513
+ },
+ "scoring_ranked": [
+  {
+   "n": 1,
+   "hits": 0,
+   "best_dockq": 0.03211053445897994,
+   "best_fnat": 0.0,
+   "best_lrmsd": 27.117159946292215,
+   "best_irmsd": 18.03772710572949,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 5,
+   "hits": 0,
+   "best_dockq": 0.03211053445897994,
+   "best_fnat": 0.0,
+   "best_lrmsd": 27.117159946292215,
+   "best_irmsd": 18.03772710572949,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 10,
+   "hits": 0,
+   "best_dockq": 0.03211053445897994,
+   "best_fnat": 0.0,
+   "best_lrmsd": 27.117159946292215,
+   "best_irmsd": 18.03772710572949,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 20,
+   "hits": 0,
+   "best_dockq": 0.03211053445897994,
+   "best_fnat": 0.0,
+   "best_lrmsd": 27.117159946292215,
+   "best_irmsd": 18.03772710572949,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 50,
+   "hits": 0,
+   "best_dockq": 0.032406986210875774,
+   "best_fnat": 0.0,
+   "best_lrmsd": 26.981299632988268,
+   "best_irmsd": 17.948899232028772,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 100,
+   "hits": 0,
+   "best_dockq": 0.032406986210875774,
+   "best_fnat": 0.0,
+   "best_lrmsd": 26.981299632988268,
+   "best_irmsd": 17.948899232028772,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 200,
+   "hits": 0,
+   "best_dockq": 0.08171414325618608,
+   "best_fnat": 0.11627906976744186,
+   "best_lrmsd": 22.80299719090012,
+   "best_irmsd": 18.040075870019912,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 500,
+   "hits": 0,
+   "best_dockq": 0.08171414325618608,
+   "best_fnat": 0.11627906976744186,
+   "best_lrmsd": 22.80299719090012,
+   "best_irmsd": 18.040075870019912,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 1000,
+   "hits": 0,
+   "best_dockq": 0.16639457610961617,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.705757611737205,
+   "best_irmsd": 15.269660805635448,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 2000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 5000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 10000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  }
+ ],
+ "oracle": [
+  {
+   "n": 1,
+   "hits": 0,
+   "best_dockq": 0.15421166729017513,
+   "best_fnat": 0.2558139534883721,
+   "best_lrmsd": 17.176924809914777,
+   "best_irmsd": 14.839891146400353,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 5,
+   "hits": 0,
+   "best_dockq": 0.15421166729017513,
+   "best_fnat": 0.2558139534883721,
+   "best_lrmsd": 17.176924809914777,
+   "best_irmsd": 14.839891146400353,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 10,
+   "hits": 0,
+   "best_dockq": 0.15421166729017513,
+   "best_fnat": 0.2558139534883721,
+   "best_lrmsd": 17.176924809914777,
+   "best_irmsd": 14.839891146400353,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 20,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 50,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 100,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 200,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 500,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 1000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 2000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 5000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  },
+  {
+   "n": 10000,
+   "hits": 0,
+   "best_dockq": 0.1689425090482335,
+   "best_fnat": 0.3023255813953488,
+   "best_lrmsd": 17.29490077023207,
+   "best_irmsd": 14.963645042646423,
+   "best_capri": "Incorrect"
+  }
+ ]
+}

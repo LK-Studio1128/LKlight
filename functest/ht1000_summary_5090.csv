@@ -1,0 +1,4 @@
+﻿"Engine","RC","WallSec","Best","Note"
+"exact",,"128.41","-7251.90266919","2026-09-05 23:30 rerun (post-GPU-fix, same-batch)"
+"cpu_grid",,"37.01","-7254.95220161","2026-09-05 23:30 rerun (post-GPU-fix, same-batch)"
+"gpu",,"4.05","-7254.9516108","2026-09-05 23:30 rerun POST CACHE FIX (was 267.57s pre-fix at 18:39)"

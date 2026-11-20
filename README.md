@@ -1,4 +1,4 @@
-# LKlight v1.1.0
+# LKlight v1.2.1
 
 [![CI](https://github.com/LK-Studio1128/LKlight/actions/workflows/rust.yml/badge.svg)](https://github.com/LK-Studio1128/LKlight/actions)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)

@@ -1,0 +1,65 @@
+name: Smoke released binaries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download and prepare release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p smoke/cpu smoke/grid smoke/gpu smoke/cuda
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            gh release download v1.2.1 --repo LK-Studio1128/LKlight --pattern 'LKlight-v1.2.1-linux-x86_64.tar.gz'
+            tar -xzf LKlight-v1.2.1-linux-x86_64.tar.gz -C smoke/cpu --strip-components=1
+            gh release download v1.2.1 --repo LK-Studio1128/LKlight-grid --pattern 'LKlight-grid-v1.2.1-linux-x86_64'
+            cp LKlight-grid-v1.2.1-linux-x86_64 smoke/grid/LKlight
+            gh release download v1.2.3 --repo LK-Studio1128/LKlight-GPU --pattern 'LKlight-GPU-v1.2.3-linux-x86_64-cuda'
+            cp LKlight-GPU-v1.2.3-linux-x86_64-cuda smoke/gpu/LKlight
+            gh release download v1.1.1 --repo LK-Studio1128/LKlight-CUDA --pattern 'LKlight-CUDA-v1.1.1-linux-x86_64-cuda'
+            cp LKlight-CUDA-v1.1.1-linux-x86_64-cuda smoke/cuda/LKlight
+            chmod +x smoke/cpu/LKlight smoke/grid/LKlight smoke/gpu/LKlight smoke/cuda/LKlight
+          else
+            gh release download v1.2.1 --repo LK-Studio1128/LKlight --pattern 'LKlight-v1.2.1-win-x64.zip'
+            7z x -y LKlight-v1.2.1-win-x64.zip -osmoke/cpu >/dev/null
+            gh release download v1.2.1 --repo LK-Studio1128/LKlight-grid --pattern 'LKlight-grid-v1.2.1-win64.exe'
+            cp LKlight-grid-v1.2.1-win64.exe smoke/grid/LKlight.exe
+            gh release download v1.2.3 --repo LK-Studio1128/LKlight-GPU --pattern 'LKlight-GPU-v1.2.3-win64-cuda.exe'
+            cp LKlight-GPU-v1.2.3-win64-cuda.exe smoke/gpu/LKlight.exe
+            gh release download v1.1.1 --repo LK-Studio1128/LKlight-CUDA --pattern 'LKlight-CUDA-v1.1.1-win64-cuda.exe'
+            cp LKlight-CUDA-v1.1.1-win64-cuda.exe smoke/cuda/LKlight.exe
+          fi
+
+      - name: Score protein-DNA regression and verify unsupported scorer rejection
+        shell: bash
+        run: |
+          set -euo pipefail
+          ext=""
+          if [ "$RUNNER_OS" = "Windows" ]; then ext=".exe"; fi
+          for engine in cpu grid gpu cuda; do
+            bin="smoke/$engine/LKlight$ext"
+            echo "===== $engine ====="
+            "$bin" score tests/1azp/1azp_receptor.pdb tests/1azp/1azp_ligand.pdb dna
+            "$bin" score tests/1azp/1azp_receptor.pdb tests/1azp/1azp_ligand.pdb pydock
+            set +e
+            "$bin" score tests/1azp/1azp_receptor.pdb tests/1azp/1azp_ligand.pdb fastdfire > "smoke/$engine/reject.log" 2>&1
+            rc=$?
+            set -e
+            cat "smoke/$engine/reject.log"
+            if [ "$rc" -ne 2 ]; then
+              echo "Expected fastdfire rejection rc=2, got rc=$rc" >&2
+              exit 1
+            fi
+          done

@@ -91,6 +91,49 @@ pub fn parse_method(method_str: &str) -> Option<Method> {
     }
 }
 
+fn _is_nucleic_residue_name(name: &str) -> bool {
+    let mut n = name.trim().to_ascii_uppercase();
+    if n.ends_with('5') || n.ends_with('3') || n.ends_with('N') {
+        n.pop();
+    }
+    matches!(n.as_str(),
+        "DA" | "DT" | "DG" | "DC" | "DU" |
+        "A" | "C" | "G" | "U" |
+        "RA" | "RC" | "RG" | "RU" |
+        "ADE" | "THY" | "CYT" | "GUA" | "URA" |
+        "DI" | "5MC" | "5CM" | "5MU" | "PSU" | "H2U" |
+        "OMC" | "OMG" | "OMU" | "1MA" | "M2G" | "7MG" |
+        "2MG" | "MA6" | "MIA" | "YYG" | "IC" | "UR3" |
+        "4SU" | "S4U" | "BRU" | "CBR"
+    )
+}
+
+fn _pdb_has_nucleic(pdb: &pdbtbx::PDB) -> bool {
+    for chain in pdb.chains() {
+        for residue in chain.residues() {
+            if let Some(name) = residue.name() {
+                if _is_nucleic_residue_name(name) {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+fn _validate_scoring_for_inputs(receptor: &pdbtbx::PDB, ligand: &pdbtbx::PDB, method: Method) {
+    let has_nucleic = _pdb_has_nucleic(receptor) || _pdb_has_nucleic(ligand);
+    if has_nucleic {
+        match method {
+            Method::DNA | Method::DDNA => {}
+            _ => panic!(
+                "scoring method {:?} does not support nucleic-acid input; use dna or ddna",
+                method
+            ),
+        }
+    }
+}
+
 pub fn parse_swarm_id(path: &Path) -> Option<i32> {
     path.file_name()
         .and_then(|s| s.to_str())
@@ -168,6 +211,7 @@ pub fn simulate(
     let lig_active  = restraints_or_empty(&setup.ligand_restraints,   "active");
     let lig_passive = restraints_or_empty(&setup.ligand_restraints,   "passive");
 
+    _validate_scoring_for_inputs(&receptor, &ligand, method);
     println!("Loading {:?} scoring function", method);
     let scoring: Box<dyn Score> = match method {
         Method::DFIRE => DFIRE::new(receptor, rec_active, rec_passive, rec_nm, setup.anm_rec,
@@ -261,6 +305,7 @@ pub fn score_pdb(
     let (ligand, _)   = pdbtbx::open(lig_path, pdbtbx::StrictnessLevel::Loose)
         .unwrap_or_else(|_| panic!("score_pdb: cannot open {}", lig_path));
 
+    _validate_scoring_for_inputs(&receptor, &ligand, method);
     let none_vec: Vec<String> = vec![];
     let none_f:   Vec<f64>    = vec![];
     let scoring: Box<dyn Score> = match method {

@@ -1543,5 +1543,11 @@ fn main() {
         .stack_size(STACK_SIZE)
         .spawn(dispatch)
         .unwrap();
-    child.join().unwrap();
+    if let Err(payload) = child.join() {
+        let msg = payload.downcast_ref::<&str>().copied()
+            .or_else(|| payload.downcast_ref::<String>().map(|s| s.as_str()))
+            .unwrap_or("LKlight internal error");
+        eprintln!("ERROR: {}", msg);
+        std::process::exit(2);
+    }
 }

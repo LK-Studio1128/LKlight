@@ -36,6 +36,7 @@ jobs:
           else
             gh release download v1.2.1 --repo LK-Studio1128/LKlight --pattern 'LKlight-v1.2.1-win-x64.zip'
             7z x -y LKlight-v1.2.1-win-x64.zip -osmoke/cpu >/dev/null
+            cp "$(find smoke/cpu -type f -name LKlight.exe | head -1)" smoke/cpu/LKlight.exe
             gh release download v1.2.1 --repo LK-Studio1128/LKlight-grid --pattern 'LKlight-grid-v1.2.1-win64.exe'
             cp LKlight-grid-v1.2.1-win64.exe smoke/grid/LKlight.exe
             gh release download v1.2.3 --repo LK-Studio1128/LKlight-GPU --pattern 'LKlight-GPU-v1.2.3-win64-cuda.exe'

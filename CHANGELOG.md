@@ -11,7 +11,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.2.1] — 2026-11-21
 
 ### Fixed
-- Reject incompatible scoring functions for nucleic-acid inputs. Protein–DNA
+- Reject incompatible scoring functions for nucleic-acid inputs while
+  retaining nucleotide-compatible `dna`, `ddna`, `pydock`, `cpydock`, and `vdw`. Protein–DNA
   and protein–RNA jobs now fail with a clear error instead of completing with
   a constant `-0` score.
 - Propagate docking worker failures to the process exit status.

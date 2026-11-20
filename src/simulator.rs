@@ -121,15 +121,47 @@ fn _pdb_has_nucleic(pdb: &pdbtbx::PDB) -> bool {
     false
 }
 
+/// Scoring families that can operate on nucleotide atoms without residues
+/// silently falling into unsupported amino-acid-only lookup tables.
+///
+/// `pydock`, `cpydock` and `vdw` use element/AMBER-generic parameters and are
+/// valid for protein–DNA/RNA complexes. The statistical/contact-map families
+/// and `sd` remain protein-only until their nucleotide atom typing is complete.
+fn _scoring_supports_nucleic(method: Method) -> bool {
+    matches!(
+        method,
+        Method::DNA | Method::DDNA | Method::PYDOCK | Method::CPYDOCK | Method::VDW
+    )
+}
+
 fn _validate_scoring_for_inputs(receptor: &pdbtbx::PDB, ligand: &pdbtbx::PDB, method: Method) {
     let has_nucleic = _pdb_has_nucleic(receptor) || _pdb_has_nucleic(ligand);
-    if has_nucleic {
-        match method {
-            Method::DNA | Method::DDNA => {}
-            _ => panic!(
-                "scoring method {:?} does not support nucleic-acid input; use dna or ddna",
-                method
-            ),
+    if has_nucleic && !_scoring_supports_nucleic(method) {
+        panic!(
+            "scoring method {:?} does not support nucleic-acid input; use dna, ddna, pydock, cpydock, or vdw",
+            method
+        );
+    }
+}
+
+#[cfg(test)]
+mod nucleic_scoring_guard_tests {
+    use super::{_scoring_supports_nucleic, Method};
+
+    #[test]
+    fn nucleotide_compatible_methods_are_allowed() {
+        for method in [Method::DNA, Method::DDNA, Method::PYDOCK, Method::CPYDOCK, Method::VDW] {
+            assert!(_scoring_supports_nucleic(method), "{method:?} should support nucleic acids");
+        }
+    }
+
+    #[test]
+    fn amino_acid_only_methods_are_rejected() {
+        for method in [
+            Method::DFIRE, Method::DFIRE2, Method::MJ3H, Method::SD,
+            Method::PISA, Method::SIPPER, Method::TOBI,
+        ] {
+            assert!(!_scoring_supports_nucleic(method), "{method:?} must reject nucleic acids");
         }
     }
 }

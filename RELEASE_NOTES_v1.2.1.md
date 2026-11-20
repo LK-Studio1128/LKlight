@@ -8,7 +8,9 @@ constant zero / `-0` score.
 
 - Nucleic-acid inputs now reject incompatible scoring functions (`dfire`,
   `fastdfire`, `dfire2`, `pydock`, etc.) with a clear error and exit code 2.
-  Only `dna` and `ddna` are accepted for nucleic-acid structures.
+  Nucleotide-compatible methods remain available: `dna`, `ddna`, `pydock`,
+  `cpydock`, and `vdw`. Amino-acid-only/statistical methods (`dfire`,
+  `fastdfire`, `dfire2`, `mj3h`, `sd`, `pisa`, `sipper`, `tobi`) are rejected.
 - Docking-worker failures are propagated to the process exit status instead of
   looking like a successful run.
 - `auto` scoring can be resolved from the actual receptor/ligand residue names;
@@ -16,7 +18,7 @@ constant zero / `-0` score.
 
 ## Validation
 
-- `cargo test --release --lib`: **29 passed**.
+- `cargo test --release --lib`: **31 passed**.
 - Real protein–DNA regression (`MYB46-ALL.pdb` + `proCDH653-1137.pdb`,
   `score ... dna`): **-5194.963695**, not zero.
 - A 1 swarm × 20 glowworms × 20 steps DNA docking produced a varying ranked

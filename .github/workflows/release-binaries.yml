@@ -1,0 +1,30 @@
+name: Build release binaries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: LKlight-linux-x86_64
+            binary: target/release/LKlight
+          - os: windows-latest
+            artifact: LKlight-windows-x64
+            binary: target/release/LKlight.exe
+          - os: macos-latest
+            artifact: LKlight-macos
+            binary: target/release/LKlight
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
